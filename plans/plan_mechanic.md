@@ -13,11 +13,11 @@
     - `calculate_path_to_core(start_pos)`: Simple BFS or A* from edge to core.
 
 ## Phase 2: The Spark (Simulation Loop)
-- [ ] **Resource System**
+- [x] **Resource System**
     - `Materials`: Cap at 500 (soft) / Hard cap logic.
     - `Power`: Recalculate every frame: `Sum(Active Modules * PowerCost)`.
     - `Credits`: Meta-currency accumulator.
-- [ ] **Interaction Resolvers**
+- [x] **Interaction Resolvers**
     - `attempt_repair(slot_id)`:
         - Check Cost <= Materials.
         - Deduct Cost.
@@ -25,24 +25,24 @@
     - `attempt_upgrade(slot_id)`:
         - Check logic for Max Level.
         - Multiply stats by 1.2x (or linear growth).
-- [ ] **Engine Logic**
+- [x] **Engine Logic**
     - State: `Idle` -> `Charging` (Boss Spawn) -> `Escaped` (Win).
     - Timer: 180s countdown once activated.
 
 ## Phase 3: The Swarm (AI & Combat)
-- [ ] **Wave Manager (The "Director")**
+- [x] **Wave Manager (The "Director")**
     - Input: `CurrentPower`.
     - Output: Spawn Events.
     - **Logic**:
         - Power 0-5: `Drone` every 3s.
         - Power 6-10: `Drone` every 1s + `Guard` every 10s.
         - Power 16+ (Boss): Stop normal waves, spawn `Boss`.
-- [ ] **Enemy Logic**
+- [x] **Enemy Logic**
     - **Behaviors**:
         - `Rusher` (Drone): Move directly to Core.
         - `Tank` (Guard): Move to nearest `Weapon`/`Shield` module first.
         - `Leech`: Move to `Generator` and stay attached (draining power).
-- [ ] **Combat Math**
+- [x] **Combat Math**
     - `Projectile` resolution:
         - Box Collision check against Enemy list.
         - OnHit: `Enemy.hp -= projectile.damage`.

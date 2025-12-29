@@ -4,12 +4,38 @@ use crate::constants::*;
 use crate::ship::{ModuleType, ModuleState};
 
 pub struct Renderer {
-    // Keep a reference to assets if needed
+    pub trauma: f32, // Screen shake trauma (0.0 - 1.0)
 }
 
 impl Renderer {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            trauma: 0.0,
+        }
+    }
+
+    /// Add trauma for screen shake (clamped to 1.0)
+    pub fn add_trauma(&mut self, amount: f32) {
+        self.trauma = (self.trauma + amount).min(1.0);
+    }
+
+    /// Update trauma decay
+    pub fn update(&mut self, dt: f32) {
+        self.trauma = (self.trauma - dt * 2.0).max(0.0);
+    }
+
+    /// Get current shake offset
+    fn get_shake_offset(&self) -> Vec2 {
+        if self.trauma > 0.0 {
+            let shake = self.trauma * self.trauma; // Quadratic for smoother feel
+            let max_offset = 8.0;
+            vec2(
+                rand::gen_range(-1.0, 1.0) * max_offset * shake,
+                rand::gen_range(-1.0, 1.0) * max_offset * shake,
+            )
+        } else {
+            Vec2::ZERO
+        }
     }
 
     pub fn draw(&self, state: &GameState) {
@@ -17,6 +43,7 @@ impl Renderer {
             GamePhase::Menu => self.draw_menu(),
             GamePhase::Playing => self.draw_gameplay(state),
             GamePhase::GameOver => self.draw_game_over(state),
+            GamePhase::Victory => self.draw_victory(state),
         }
     }
 
@@ -98,33 +125,139 @@ impl Renderer {
         (btn_x, btn_y, btn_width, btn_height)
     }
 
-    fn draw_game_over(&self, _state: &GameState) {
-        // Background
-        draw_rectangle(0.0, 0.0, screen_width(), screen_height(), color_u8!(20, 10, 10, 255));
+    fn draw_game_over(&self, state: &GameState) {
+        // Background with vignette effect
+        draw_rectangle(0.0, 0.0, screen_width(), screen_height(), color_u8!(15, 5, 5, 255));
+        
+        // Vignette
+        for i in 0..5 {
+            let alpha = 100 - i * 20;
+            let offset = i as f32 * 30.0;
+            draw_rectangle_lines(
+                offset, offset, 
+                screen_width() - offset * 2.0, 
+                screen_height() - offset * 2.0,
+                3.0,
+                color_u8!(80, 0, 0, alpha as u8),
+            );
+        }
 
-        let text = "GAME OVER";
+        // Title
+        let text = "CORE DESTROYED";
         let size = measure_text(text, None, 64, 1.0);
         draw_text(
             text,
             screen_width() / 2.0 - size.width / 2.0,
-            screen_height() / 2.0,
+            screen_height() / 3.0,
             64.0,
             RED,
         );
+
+        // Stats
+        let stats_y = screen_height() / 2.0;
+        let stats = [
+            format!("Scrap Collected: {}", state.resources.scrap + 100), // Add starting scrap
+            format!("Credits Earned: {}", state.resources.credits),
+            format!("Frames Survived: {}", state.frame_count),
+        ];
+        
+        for (i, stat) in stats.iter().enumerate() {
+            let s = measure_text(stat, None, 24, 1.0);
+            draw_text(
+                stat,
+                screen_width() / 2.0 - s.width / 2.0,
+                stats_y + i as f32 * 30.0,
+                24.0,
+                GRAY,
+            );
+        }
 
         let hint = "Press ENTER to return to menu";
         let hint_size = measure_text(hint, None, 24, 1.0);
         draw_text(
             hint,
             screen_width() / 2.0 - hint_size.width / 2.0,
-            screen_height() / 2.0 + 60.0,
+            screen_height() - 80.0,
             24.0,
             WHITE,
         );
     }
 
+    fn draw_victory(&self, state: &GameState) {
+        // Bright background
+        draw_rectangle(0.0, 0.0, screen_width(), screen_height(), color_u8!(10, 20, 30, 255));
+        
+        // Glow effect
+        for i in 0..8 {
+            let alpha = 60 - i * 7;
+            let offset = i as f32 * 20.0;
+            draw_rectangle_lines(
+                offset, offset, 
+                screen_width() - offset * 2.0, 
+                screen_height() - offset * 2.0,
+                2.0,
+                color_u8!(100, 200, 255, alpha as u8),
+            );
+        }
+
+        // Title
+        let text = "ESCAPE SUCCESSFUL!";
+        let size = measure_text(text, None, 64, 1.0);
+        draw_text(
+            text,
+            screen_width() / 2.0 - size.width / 2.0,
+            screen_height() / 3.0,
+            64.0,
+            GREEN,
+        );
+
+        let subtitle = "You made it off the planet!";
+        let sub_size = measure_text(subtitle, None, 28, 1.0);
+        draw_text(
+            subtitle,
+            screen_width() / 2.0 - sub_size.width / 2.0,
+            screen_height() / 3.0 + 50.0,
+            28.0,
+            color_u8!(150, 255, 150, 255),
+        );
+
+        // Stats
+        let stats_y = screen_height() / 2.0;
+        let stats = [
+            format!("Total Credits: {}", state.resources.credits),
+            format!("Core Health Remaining: {:.0}%", 
+                if let Some(pos) = state.ship.find_core() {
+                    if let Some(core) = &state.ship.grid[pos.0][pos.1] {
+                        (core.health / core.max_health) * 100.0
+                    } else { 0.0 }
+                } else { 0.0 }
+            ),
+        ];
+        
+        for (i, stat) in stats.iter().enumerate() {
+            let s = measure_text(stat, None, 24, 1.0);
+            draw_text(
+                stat,
+                screen_width() / 2.0 - s.width / 2.0,
+                stats_y + i as f32 * 30.0,
+                24.0,
+                WHITE,
+            );
+        }
+
+        let hint = "Press ENTER to return to menu";
+        let hint_size = measure_text(hint, None, 24, 1.0);
+        draw_text(
+            hint,
+            screen_width() / 2.0 - hint_size.width / 2.0,
+            screen_height() - 80.0,
+            24.0,
+            GRAY,
+        );
+    }
+
     /// Draws the background ship hull texture/shape.
-    fn draw_ship_hull(&self, state: &GameState) {
+    fn draw_ship_hull(&self, _state: &GameState) {
         let total_width = GRID_WIDTH as f32 * CELL_SIZE;
         let total_height = GRID_HEIGHT as f32 * CELL_SIZE;
         let start_x = (screen_width() - total_width) / 2.0;
@@ -244,30 +377,191 @@ impl Renderer {
 
     fn draw_hud(&self, state: &GameState) {
         // Draw Top Bar Background
-        draw_rectangle(0.0, 0.0, screen_width(), 40.0, color_u8!(20, 20, 20, 255));
+        draw_rectangle(0.0, 0.0, screen_width(), 50.0, color_u8!(20, 20, 20, 255));
 
-        // Scrap
+        // === LEFT SECTION: Resources ===
+        // Scrap with capacity warning
+        let scrap_pct = state.resources.scrap as f32 / state.resources.max_scrap as f32;
+        let scrap_color = if scrap_pct >= 1.0 {
+            RED
+        } else if scrap_pct >= 0.9 {
+            YELLOW
+        } else {
+            WHITE
+        };
         draw_text(
             &format!("SCRAP: {}/{}", state.resources.scrap, state.resources.max_scrap),
             20.0,
-            28.0,
+            32.0,
             24.0,
+            scrap_color,
+        );
+
+        // Credits
+        draw_text(
+            &format!("CREDITS: {}", state.resources.credits),
+            20.0,
+            48.0,
+            18.0,
+            color_u8!(200, 200, 100, 255),
+        );
+
+        // === CENTER SECTION: Power Meter ===
+        let meter_width = 200.0;
+        let meter_height = 20.0;
+        let meter_x = screen_width() / 2.0 - meter_width / 2.0;
+        let meter_y = 15.0;
+
+        // Power meter background
+        draw_rectangle(meter_x, meter_y, meter_width, meter_height, color_u8!(40, 40, 40, 255));
+        
+        // Power level (assuming max power around 20 for scaling)
+        let power = state.resources.power;
+        let power_pct = (power.abs() as f32 / 20.0).min(1.0);
+        
+        // Color based on power level (threat)
+        let power_color = if power >= 16 {
+            RED
+        } else if power >= 10 {
+            ORANGE
+        } else if power >= 5 {
+            YELLOW
+        } else {
+            GREEN
+        };
+        
+        draw_rectangle(meter_x, meter_y, meter_width * power_pct, meter_height, power_color);
+        draw_rectangle_lines(meter_x, meter_y, meter_width, meter_height, 2.0, WHITE);
+        
+        // Power text
+        let power_text = format!("POWER: {}", power);
+        let power_size = measure_text(&power_text, None, 16, 1.0);
+        draw_text(
+            &power_text,
+            meter_x + meter_width / 2.0 - power_size.width / 2.0,
+            meter_y + 15.0,
+            16.0,
             WHITE,
         );
 
-        // Power (Center)
-        let power_text = format!("POWER: {}", state.resources.power);
-        let power_size = measure_text(&power_text, None, 24, 1.0);
+        // === RIGHT SECTION: Timer & Status ===
+        use crate::state::EngineState;
+        
+        match state.engine_state {
+            EngineState::Idle => {
+                draw_text("ENGINE: IDLE", screen_width() - 180.0, 28.0, 20.0, GRAY);
+            }
+            EngineState::Charging => {
+                let mins = (state.escape_timer / 60.0).floor() as i32;
+                let secs = (state.escape_timer % 60.0).floor() as i32;
+                let timer_text = format!("ESCAPE: {:02}:{:02}", mins, secs);
+                
+                // Pulse red when < 20s
+                let timer_color = if state.escape_timer < 20.0 {
+                    let pulse = ((get_time() * 4.0).sin() * 0.5 + 0.5) as f32;
+                    Color::new(1.0, pulse * 0.3, pulse * 0.3, 1.0)
+                } else {
+                    ORANGE
+                };
+                
+                draw_text(&timer_text, screen_width() - 180.0, 28.0, 24.0, timer_color);
+                draw_text("BOSS ACTIVE", screen_width() - 180.0, 46.0, 16.0, RED);
+            }
+            EngineState::Escaped => {
+                draw_text("ESCAPED!", screen_width() - 180.0, 28.0, 24.0, GREEN);
+            }
+        }
+
+        // === PAUSE OVERLAY ===
+        if state.paused {
+            draw_rectangle(0.0, 0.0, screen_width(), screen_height(), color_u8!(0, 0, 0, 150));
+            let pause_text = "PAUSED";
+            let pause_size = measure_text(pause_text, None, 64, 1.0);
+            draw_text(
+                pause_text,
+                screen_width() / 2.0 - pause_size.width / 2.0,
+                screen_height() / 2.0,
+                64.0,
+                WHITE,
+            );
+            let hint = "Press P to resume, ESC to quit";
+            let hint_size = measure_text(hint, None, 24, 1.0);
+            draw_text(
+                hint,
+                screen_width() / 2.0 - hint_size.width / 2.0,
+                screen_height() / 2.0 + 50.0,
+                24.0,
+                GRAY,
+            );
+        }
+
+        // === LEFT SIDEBAR: Core Health ===
+        self.draw_sidebar(state);
+    }
+
+    fn draw_sidebar(&self, state: &GameState) {
+        let sidebar_width = 150.0;
+        let sidebar_x = 10.0;
+        let sidebar_y = 60.0;
+
+        // Sidebar background
+        draw_rectangle(sidebar_x, sidebar_y, sidebar_width, 120.0, color_u8!(25, 25, 35, 220));
+        draw_rectangle_lines(sidebar_x, sidebar_y, sidebar_width, 120.0, 1.0, color_u8!(60, 60, 80, 255));
+
+        // Find core and display health
+        if let Some(core_pos) = state.ship.find_core() {
+            if let Some(core) = &state.ship.grid[core_pos.0][core_pos.1] {
+                // Core Health label
+                draw_text("CORE STATUS", sidebar_x + 10.0, sidebar_y + 20.0, 16.0, WHITE);
+                
+                // Health bar
+                let bar_x = sidebar_x + 10.0;
+                let bar_y = sidebar_y + 30.0;
+                let bar_width = sidebar_width - 20.0;
+                let bar_height = 16.0;
+                let hp_pct = core.health / core.max_health;
+
+                draw_rectangle(bar_x, bar_y, bar_width, bar_height, color_u8!(60, 20, 20, 255));
+                draw_rectangle(bar_x, bar_y, bar_width * hp_pct, bar_height, RED);
+                draw_rectangle_lines(bar_x, bar_y, bar_width, bar_height, 1.0, WHITE);
+
+                // HP text
+                draw_text(
+                    &format!("{:.0}/{:.0}", core.health, core.max_health),
+                    bar_x + 5.0,
+                    bar_y + 12.0,
+                    14.0,
+                    WHITE,
+                );
+
+                // Level indicator
+                draw_text(
+                    &format!("Level: {}", core.level),
+                    sidebar_x + 10.0,
+                    sidebar_y + 65.0,
+                    14.0,
+                    GRAY,
+                );
+            }
+        }
+
+        // Enemy count
         draw_text(
-            &power_text,
-            screen_width() / 2.0 - power_size.width / 2.0,
-            28.0,
-            24.0,
-            YELLOW,
+            &format!("Enemies: {}", state.enemies.len()),
+            sidebar_x + 10.0,
+            sidebar_y + 90.0,
+            14.0,
+            ORANGE,
         );
 
-        // Timer (Right) - Placeholder
-        draw_text("TIME: --:--", screen_width() - 150.0, 28.0, 24.0, GRAY);
+        // Projectile count
+        draw_text(
+            &format!("Projectiles: {}", state.projectiles.len()),
+            sidebar_x + 10.0,
+            sidebar_y + 108.0,
+            14.0,
+            YELLOW,
+        );
     }
 
     fn draw_enemies(&self, state: &GameState) {

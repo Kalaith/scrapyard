@@ -20,11 +20,11 @@
     - JSON Load/Save for persisting run state (optional but good architecture).
 
 ## Phase 2: The Spark (Input & Events)
-- [ ] **Input Manager**
+- [x] **Input Manager**
     - `InputState` struct: Captures MousePos, Clicks, Keys.
     - `Raycaster`: `screen_to_world(mouse_pos) -> Option<GridCoord>`.
     - `UIEvent` Enum: `Repair(Coord)`, `Upgrade(Coord)`, `Pause`, `Resume`.
-- [ ] **Event Bus (Optional but recommended)**
+- [x] **Event Bus (Optional but recommended)**
     - Simple `Vec<GameEvent>` queue for decoupling UI clicks from Game Logic updates.
 
 ## Phase 3: The Swarm (Optimization)
@@ -36,7 +36,7 @@
     - `ParticlePool`: Pre-allocate visual effects.
 
 ## Phase 4: Polish (System)
-- [ ] **Settings System**
+- [x] **Settings System**
     - `Settings` struct: Volume (SFX/Music), Fullscreen toggle.
     - Save specific settings to `config.json`.
 - [ ] **Error Handling**

@@ -48,20 +48,44 @@ impl Ship {
     pub fn new(width: usize, height: usize) -> Self {
         let mut grid = vec![vec![None; height]; width];
         
-        // Initialize a simple test layout
-        // Center Core
+        // Initialize starting ship layout
         let cx = width / 2;
         let cy = height / 2;
         
+        // Core (Active)
         let mut core = Module::new(ModuleType::Core);
         core.state = ModuleState::Active;
+        core.health = 1000.0;
+        core.max_health = 1000.0;
         grid[cx][cy] = Some(core);
 
-        // Add some empty slots around it
-        grid[cx-1][cy] = Some(Module::new(ModuleType::Empty));
-        grid[cx+1][cy] = Some(Module::new(ModuleType::Empty));
+        // Adjacent slots - mix of weapons and empty
+        // Left: Weapon (Active)
+        let mut weapon1 = Module::new(ModuleType::Weapon);
+        weapon1.state = ModuleState::Active;
+        grid[cx-1][cy] = Some(weapon1);
+        
+        // Right: Weapon (Active)
+        let mut weapon2 = Module::new(ModuleType::Weapon);
+        weapon2.state = ModuleState::Active;
+        grid[cx+1][cy] = Some(weapon2);
+        
+        // Top: Empty slot (for building)
         grid[cx][cy-1] = Some(Module::new(ModuleType::Empty));
-        grid[cx][cy+1] = Some(Module::new(ModuleType::Empty));
+        
+        // Bottom: Defense (Destroyed - needs repair)
+        let defense = Module::new(ModuleType::Defense);
+        grid[cx][cy+1] = Some(defense);
+        
+        // Corners: More empty slots for expansion
+        grid[cx-1][cy-1] = Some(Module::new(ModuleType::Empty));
+        grid[cx+1][cy-1] = Some(Module::new(ModuleType::Empty));
+        grid[cx-1][cy+1] = Some(Module::new(ModuleType::Empty));
+        grid[cx+1][cy+1] = Some(Module::new(ModuleType::Empty));
+        
+        // Engine (far from core, destroyed - needs repair to escape)
+        let engine = Module::new(ModuleType::Engine);
+        grid[cx][cy+3] = Some(engine);
 
         Self { grid }
     }

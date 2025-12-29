@@ -15,7 +15,7 @@
 
 ## Phase 2: The Spark (UI & Interactivity)
 **Reference**: `ui_spec.md`
-- [ ] **Top HUD (Global Status)**
+- [x] **Top HUD (Global Status)**
     - `draw_top_bar()`: Height ~10% screen.
     - **Materials**: Icon + "Current/Cap" text.
         - *Logic*: Turn Yellow at 90% cap, Red flash at 100%.
@@ -23,7 +23,7 @@
     - **Wave/Threat**: "WAVE X" text (Standard) or "BOSS INCOMING" (Red/Shaking).
     - **Escape Timer**: Hidden until Engines ON. Format "MM:SS".
         - *Logic*: Pulse Red when < 20s.
-- [ ] **Left Sidebar (Ship Status)**
+- [x] **Left Sidebar (Ship Status)**
     - Side panel ~20% width.
     - **Power Meter**:
         - Segmented Horizontal Bar.
@@ -54,7 +54,7 @@
     - Hover logic to show: Power Cost, Threat Increase, Reward Contribution.
 
 ## Phase 3: The Swarm (Dynamic Visuals)
-- [ ] **Entity Rendering**
+- [x] **Entity Rendering**
     - **Enemies**:
         - `Nanodrone`: Small, swarm movements.
         - `Nanoguard`: Larger, slower.
@@ -62,7 +62,7 @@
     - **Projectiles**:
         - Lasers: `draw_line` with bloom bloom.
         - Missiles: Sprite + Smoke trail particles.
-- [ ] **Feedback Systems** (Juice)
+- [x] **Feedback Systems** (Juice)
     - **Screen Shake**: `Camera` offset based on trauma value (explosions/heavy hits).
     - **Damage Numbers**: Floating text scaling up and fading out.
     - **Sounds**: (Placeholder logic)
@@ -73,6 +73,6 @@
     - `TutorialManager` visual hook:
         - "Comm Link" Dialogue Box (Portrait + Text).
         - Typewriter text effect.
-- [ ] **Victory/Defeat Screens**
+- [x] **Victory/Defeat Screens**
     - Victory: "Engines Online" animation -> Fade to white.
     - Defeat: "Core Critical" -> Slow fade to black/static.
