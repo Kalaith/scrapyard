@@ -10,7 +10,7 @@ static mut SPAWN_TIMER: f32 = 0.0;
 static mut GUARD_TIMER: f32 = 0.0;
 
 pub fn update_wave_logic(state: &mut GameState, dt: f32, events: &mut EventBus) {
-    let power_level = state.resources.power;
+    let power_level = state.total_power;
     
     // Boss mode: Stop normal spawn when engine is charging or power >= 16
     if state.engine_state == EngineState::Charging {
@@ -28,17 +28,24 @@ pub fn update_wave_logic(state: &mut GameState, dt: f32, events: &mut EventBus) 
         GUARD_TIMER += dt;
     }
 
-    // Power 0-5: Drone every 3s
-    // Power 6-10: Drone every 1s + Guard every 10s
-    // Power 11-15: Drone every 0.5s + Guard every 5s
-    // Power 16+: Boss trigger (handled above when engine activates)
+    // No enemies spawn until player has enough power (give grace period)
+    if power_level < 5 {
+        return;
+    }
 
-    let (drone_interval, guard_interval) = if power_level >= 11 {
-        (0.5, 5.0)
-    } else if power_level >= 6 {
-        (1.0, 10.0)
+    // Power 5-10: Slow drones every 8s
+    // Power 11-20: Drone every 4s
+    // Power 21-40: Drone every 2s + Guard every 15s
+    // Power 40+: Aggressive spawning
+
+    let (drone_interval, guard_interval) = if power_level >= 40 {
+        (1.0, 5.0)
+    } else if power_level >= 21 {
+        (2.0, 15.0)
+    } else if power_level >= 11 {
+        (4.0, f32::MAX)
     } else {
-        (3.0, f32::MAX) // No guards at low power
+        (8.0, f32::MAX) // Very slow at low power
     };
 
     unsafe {

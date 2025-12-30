@@ -13,6 +13,8 @@ mod ai;
 mod combat;
 mod events;
 mod settings;
+mod player;
+mod interior;
 
 use state::GameState;
 use assets::AssetManager;

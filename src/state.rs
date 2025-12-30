@@ -9,6 +9,8 @@ use crate::constants::*;
 use crate::gameplay::ModuleRegistry;
 use crate::entities::{Enemy, Projectile, Particle, EnemyType};
 use crate::events::{EventBus, UIEvent, GameEvent};
+use crate::player::Player;
+use crate::interior::ShipInterior;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum GamePhase {
@@ -26,16 +28,84 @@ pub enum EngineState {
     Escaped,
 }
 
+/// Current view mode for dual-view gameplay
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ViewMode {
+    Exterior,  // Ship overview, enemies, combat
+    Interior,  // Player walking inside ship
+}
+
+/// Tutorial step for guiding player through repairs
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TutorialStep {
+    Welcome,      // Intro message
+    RepairReactor,  // Room 12 - Core
+    RepairShields,  // Room 5 - Shields
+    RepairWeapon,   // Room 1 - Weapon
+    RepairEngine,   // Room 20 - Engine
+    Complete,       // Tutorial done
+}
+
+impl TutorialStep {
+    pub fn target_room(&self) -> Option<usize> {
+        match self {
+            TutorialStep::RepairReactor => Some(12),
+            TutorialStep::RepairShields => Some(5),
+            TutorialStep::RepairWeapon => Some(1),
+            TutorialStep::RepairEngine => Some(20),
+            _ => None,
+        }
+    }
+
+    pub fn message(&self) -> &'static str {
+        match self {
+            TutorialStep::Welcome => "Welcome aboard! Your ship is damaged.\nUse WASD to move. Press E near orange repair points.",
+            TutorialStep::RepairReactor => "First, repair the REACTOR to restore power.\nFollow the highlighted path to the central room.",
+            TutorialStep::RepairShields => "Good! Now repair the SHIELDS for defense.\nHead to the shield room above.",
+            TutorialStep::RepairWeapon => "Shields online! Repair a WEAPON to fight back.\nGo to the left weapon bay.",
+            TutorialStep::RepairEngine => "Weapons ready! Finally, repair the ENGINE.\nHead to the engine room below.",
+            TutorialStep::Complete => "All systems operational! Enemies will now attack.\nPress Tab to view exterior. Good luck!",
+        }
+    }
+
+    pub fn next(&self) -> TutorialStep {
+        match self {
+            TutorialStep::Welcome => TutorialStep::RepairReactor,
+            TutorialStep::RepairReactor => TutorialStep::RepairShields,
+            TutorialStep::RepairShields => TutorialStep::RepairWeapon,
+            TutorialStep::RepairWeapon => TutorialStep::RepairEngine,
+            TutorialStep::RepairEngine => TutorialStep::Complete,
+            TutorialStep::Complete => TutorialStep::Complete,
+        }
+    }
+}
+
 pub struct GameState {
     pub ship: Ship,
+    pub interior: ShipInterior,
     pub resources: Resources,
     pub phase: GamePhase,
     pub module_registry: ModuleRegistry,
     
+    // Dual-view system
+    pub view_mode: ViewMode,
+    pub player: Player,
+    pub total_power: i32,
+    pub used_power: i32,
+    pub required_power: i32,
+    
+    // Ship integrity (game over when 0)
+    pub ship_integrity: f32,
+    pub ship_max_integrity: f32,
+    
+    // Tutorial
+    pub tutorial_step: TutorialStep,
+    pub tutorial_timer: f32,
+    
     // Game state flags
     pub paused: bool,
     pub engine_state: EngineState,
-    pub escape_timer: f32, // Countdown in seconds (180s = 3 minutes)
+    pub escape_timer: f32,
     
     // Entities
     pub enemies: Vec<Enemy>,
@@ -46,14 +116,27 @@ pub struct GameState {
 
 impl GameState {
     pub fn new() -> Self {
+        let interior = ShipInterior::starter_ship();
+        let player = Player::new_at(interior.player_start_position());
+        
         Self {
             ship: Ship::new(GRID_WIDTH, GRID_HEIGHT),
+            interior,
             resources: Resources::new(),
             phase: GamePhase::Menu,
             module_registry: ModuleRegistry::new(),
+            view_mode: ViewMode::Interior,
+            player,
+            total_power: 0,
+            used_power: 0,
+            required_power: 100,
+            ship_integrity: 1000.0,
+            ship_max_integrity: 1000.0,
+            tutorial_step: TutorialStep::Welcome,
+            tutorial_timer: 0.0,
             paused: false,
             engine_state: EngineState::Idle,
-            escape_timer: 180.0,
+            escape_timer: 60.0,
             enemies: Vec::new(),
             projectiles: Vec::new(),
             particles: Vec::new(),
@@ -64,14 +147,24 @@ impl GameState {
     /// Start a new game, resetting all state to fresh values.
     pub fn start_new_game(&mut self) {
         self.ship = Ship::new(GRID_WIDTH, GRID_HEIGHT);
+        self.interior = ShipInterior::starter_ship();
         self.resources = Resources::new();
+        self.resources.scrap = 50; // Give starting scrap for repairs
         self.enemies.clear();
         self.projectiles.clear();
         self.particles.clear();
         self.frame_count = 0;
         self.paused = false;
         self.engine_state = EngineState::Idle;
-        self.escape_timer = 180.0;
+        self.escape_timer = 60.0;
+        self.view_mode = ViewMode::Interior;
+        self.player = Player::new_at(self.interior.player_start_position());
+        self.total_power = 0;
+        self.used_power = 0;
+        self.ship_integrity = 1000.0;
+        self.ship_max_integrity = 1000.0;
+        self.tutorial_step = TutorialStep::Welcome;
+        self.tutorial_timer = 0.0;
         self.phase = GamePhase::Playing;
     }
 
@@ -79,7 +172,14 @@ impl GameState {
         match self.phase {
             GamePhase::Playing => {
                 if !self.paused {
+                    // Update player (movement in interior view)
+                    if self.view_mode == ViewMode::Interior {
+                        self.player.update(dt, &self.interior);
+                        self.player.update_nearby_module(&self.interior);
+                    }
+                    
                     self.update_resources();
+                    self.update_power();
                     self.update_engine(dt, events);
                     crate::ai::update_wave_logic(self, dt, events);
                     crate::ai::update_enemies(self, dt);
@@ -94,18 +194,42 @@ impl GameState {
         }
     }
 
-    fn check_game_over(&mut self, events: &mut EventBus) {
-        // Check if core is destroyed
-        if let Some(core_pos) = self.ship.find_core() {
-            if let Some(core) = &self.ship.grid[core_pos.0][core_pos.1] {
-                if core.state == ModuleState::Destroyed || core.health <= 0.0 {
-                    self.phase = GamePhase::GameOver;
-                    events.push_game(GameEvent::CoreDestroyed);
+    /// Calculate total power (generation) and used power (consumption)
+    fn update_power(&mut self) {
+        self.total_power = 0;
+        self.used_power = 0;
+        
+        for room in &self.interior.rooms {
+            if room.repair_points.is_empty() {
+                continue;
+            }
+            
+            let repaired = room.repaired_count() as i32;
+            
+            if repaired > 0 {
+                match room.room_type {
+                    crate::interior::RoomType::Module(ModuleType::Core) => {
+                         // Reactor GENERATES power (1 per point)
+                         self.total_power += repaired;
+                    },
+                    crate::interior::RoomType::Module(ModuleType::Weapon) => self.used_power += repaired * 2,   // 4 points = 8 power cost
+                    crate::interior::RoomType::Module(ModuleType::Defense) => self.used_power += repaired * 2,  // 4 points = 8 power cost
+                    crate::interior::RoomType::Module(ModuleType::Utility) => self.used_power += repaired * 1,  // 4 points = 4 power cost
+                    crate::interior::RoomType::Module(ModuleType::Engine) => self.used_power += repaired * 3,   // 8 points = 24 power cost
+                    crate::interior::RoomType::Cockpit => self.used_power += repaired * 2,                       // 3 points = 6 power cost
+                    crate::interior::RoomType::Medbay => self.used_power += repaired * 1,                        // 3 points = 3 power cost
+                    _ => {}
                 }
             }
-        } else {
-            // No core found at all
+        }
+    }
+
+    fn check_game_over(&mut self, events: &mut EventBus) {
+        // Game over when ship integrity reaches 0
+        if self.ship_integrity <= 0.0 {
+            self.ship_integrity = 0.0;
             self.phase = GamePhase::GameOver;
+            events.push_game(GameEvent::CoreDestroyed);
         }
     }
 
@@ -127,13 +251,38 @@ impl GameState {
     }
 
     fn update_engine(&mut self, dt: f32, events: &mut EventBus) {
-        if self.engine_state == EngineState::Charging {
-            self.escape_timer -= dt;
-            if self.escape_timer <= 0.0 {
-                self.engine_state = EngineState::Escaped;
-                self.phase = GamePhase::Victory;
-                events.push_game(GameEvent::EscapeSuccess);
+        // Find engine room repair status
+        let mut engine_repair_pct = 0.0;
+        for room in &self.interior.rooms {
+            if let crate::interior::RoomType::Module(ModuleType::Engine) = room.room_type {
+                 if !room.repair_points.is_empty() {
+                    engine_repair_pct = room.repaired_count() as f32 / room.repair_points.len() as f32;
+                 }
             }
+        }
+
+        // If engine has > 25% repairs, it starts charging (prevents accidental trigger)
+        if engine_repair_pct >= 0.25 {
+            if self.engine_state == EngineState::Idle {
+                self.engine_state = EngineState::Charging;
+            }
+            
+            // Charge speed scales with repair percentage
+            // 60s base time (was 180s). 
+            // At 100% repair = 60s survival.
+            // At 25% repair = 240s (4 mins) survival.
+            if self.engine_state == EngineState::Charging {
+                self.escape_timer -= dt * engine_repair_pct;
+                
+                if self.escape_timer <= 0.0 {
+                    self.engine_state = EngineState::Escaped;
+                    self.phase = GamePhase::Victory;
+                    events.push_game(GameEvent::EscapeSuccess);
+                }
+            }
+        } else {
+            // Not repaired enough to charge
+             self.engine_state = EngineState::Idle;
         }
     }
 

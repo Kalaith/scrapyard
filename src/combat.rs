@@ -19,29 +19,50 @@ pub fn update_combat(state: &mut GameState, dt: f32, events: &mut EventBus) {
 fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
     let mut new_projectiles = Vec::new();
     
-    for x in 0..GRID_WIDTH {
-        for y in 0..GRID_HEIGHT {
-            if let Some(module) = &state.ship.grid[x][y].clone() {
-                if module.state == ModuleState::Active && module.module_type == ModuleType::Weapon {
-                    let stats = state.module_registry.get(module.module_type);
-                    
-                    // Scale fire rate with module level
-                    let effective_fire_rate = stats.fire_rate * (1.0 + (module.level - 1) as f32 * 0.2);
-                    let fire_chance = effective_fire_rate * dt;
-                    
-                    if rand::gen_range(0.0, 1.0) < fire_chance {
-                        let tower_pos = grid_to_screen(x, y);
-                        
-                        // Scale damage with level
-                        let effective_damage = stats.damage * (1.0 + (module.level - 1) as f32 * 0.3);
-                        let effective_range = stats.range * (1.0 + (module.level - 1) as f32 * 0.1);
-                        
-                        if let Some(target) = find_nearest_enemy(&state.enemies, tower_pos, effective_range) {
-                            new_projectiles.push(Projectile::new(tower_pos, target, 400.0, effective_damage));
-                            events.push_game(GameEvent::WeaponFired { x: tower_pos.x, y: tower_pos.y });
-                        }
-                    }
-                }
+    // Check each weapon room for repair percentage
+    for room in &state.interior.rooms {
+        // Only process weapon rooms
+        if room.room_type != crate::interior::RoomType::Module(ModuleType::Weapon) {
+            continue;
+        }
+        
+        // Skip if no repair points
+        if room.repair_points.is_empty() {
+            continue;
+        }
+        
+        // Calculate repair percentage (0.0 to 1.0)
+        let repaired = room.repaired_count();
+        if repaired == 0 {
+            continue; // Not operational at all
+        }
+        
+        let repair_pct = repaired as f32 / room.repair_points.len() as f32;
+        
+        // Get the linked module position for screen coordinates
+        let (gx, gy) = match room.module_index {
+            Some(pos) => pos,
+            None => continue,
+        };
+        
+        // Base stats
+        let base_fire_rate = 0.8; // Shots per second at full power
+        let base_damage = 25.0;
+        let base_range = 300.0;
+        
+        // Scale with repair percentage
+        let effective_fire_rate = base_fire_rate * repair_pct;
+        let effective_damage = base_damage * repair_pct;
+        let effective_range = base_range; // Range stays constant
+        
+        let fire_chance = effective_fire_rate * dt;
+        
+        if rand::gen_range(0.0, 1.0) < fire_chance {
+            let tower_pos = grid_to_screen(gx, gy);
+            
+            if let Some(target) = find_nearest_enemy(&state.enemies, tower_pos, effective_range) {
+                new_projectiles.push(Projectile::new(tower_pos, target, 400.0, effective_damage));
+                events.push_game(GameEvent::WeaponFired { x: tower_pos.x, y: tower_pos.y });
             }
         }
     }
@@ -149,51 +170,50 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
 }
 
 fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
-    let attack_range = 30.0; // Distance to start attacking
+    let attack_range = 30.0;
+    
+    // Calculate shield reduction from all shield rooms
+    let mut shield_reduction = 0.0;
+    for room in &state.interior.rooms {
+        if room.room_type == crate::interior::RoomType::Module(ModuleType::Defense) {
+            if !room.repair_points.is_empty() {
+                let repair_pct = room.repaired_count() as f32 / room.repair_points.len() as f32;
+                shield_reduction += repair_pct * 0.5; // Each shield room can block up to 50%
+            }
+        }
+    }
+    // Cap at 80% damage reduction max
+    shield_reduction = shield_reduction.min(0.8);
     
     for enemy in &state.enemies {
         if enemy.health <= 0.0 { continue; }
         
-        // Find if enemy is near any module
         if let Some(grid_pos) = screen_to_grid(enemy.position) {
             let (gx, gy) = grid_pos;
             
-            // Check the module at this position and adjacent
             for dx in -1i32..=1 {
                 for dy in -1i32..=1 {
                     let nx = (gx as i32 + dx) as usize;
                     let ny = (gy as i32 + dy) as usize;
                     
                     if nx < GRID_WIDTH && ny < GRID_HEIGHT {
-                        if let Some(module) = &mut state.ship.grid[nx][ny] {
-                            if module.state != ModuleState::Destroyed {
-                                let module_pos = grid_to_screen(nx, ny);
-                                let dist = enemy.position.distance(module_pos);
+                        if state.ship.grid[nx][ny].is_some() {
+                            let module_pos = grid_to_screen(nx, ny);
+                            let dist = enemy.position.distance(module_pos);
+                            
+                            if dist < attack_range {
+                                // Apply shield reduction to damage
+                                let base_damage = enemy.damage * dt;
+                                let damage = base_damage * (1.0 - shield_reduction);
+                                state.ship_integrity -= damage;
                                 
-                                if dist < attack_range {
-                                    // Apply damage
-                                    let damage = enemy.damage * dt;
-                                    module.health -= damage;
-                                    
-                                    events.push_game(GameEvent::ModuleDamaged { 
-                                        x: nx, 
-                                        y: ny, 
-                                        damage 
-                                    });
-                                    
-                                    // Check for destruction
-                                    if module.health <= 0.0 {
-                                        module.health = 0.0;
-                                        module.state = ModuleState::Destroyed;
-                                        
-                                        events.push_game(GameEvent::ModuleDestroyed { x: nx, y: ny });
-                                        
-                                        // Check if core was destroyed
-                                        if module.module_type == ModuleType::Core {
-                                            events.push_game(GameEvent::CoreDestroyed);
-                                        }
-                                    }
-                                }
+                                events.push_game(GameEvent::ModuleDamaged { 
+                                    x: nx, 
+                                    y: ny, 
+                                    damage 
+                                });
+                                
+                                break;
                             }
                         }
                     }

@@ -48,12 +48,207 @@ impl Renderer {
     }
 
     fn draw_gameplay(&self, state: &GameState) {
-        self.draw_ship_hull(state);
-        self.draw_ship_grid(state);
-        self.draw_enemies(state);
-        self.draw_projectiles(state);
-        self.draw_particles(state);
+        use crate::state::{ViewMode, TutorialStep};
+        
+        match state.view_mode {
+            ViewMode::Exterior => {
+                self.draw_ship_hull(state);
+                self.draw_ship_grid(state);
+                self.draw_enemies(state);
+                self.draw_projectiles(state);
+                self.draw_particles(state);
+            }
+            ViewMode::Interior => {
+                self.draw_interior(state);
+            }
+        }
+        
+        // HUD is always visible
         self.draw_hud(state);
+        
+        // View mode indicator
+        let mode_text = match state.view_mode {
+            ViewMode::Exterior => "EXTERIOR [Tab]",
+            ViewMode::Interior => "INTERIOR [Tab]",
+        };
+        draw_text(mode_text, screen_width() - 150.0, screen_height() - 20.0, 18.0, GRAY);
+        
+        // Tutorial overlay
+        if state.tutorial_step != TutorialStep::Complete {
+            self.draw_tutorial(state);
+        }
+    }
+
+    fn draw_tutorial(&self, state: &GameState) {
+        use crate::state::TutorialStep;
+        
+        // Semi-transparent background at top
+        let box_height = 80.0;
+        draw_rectangle(0.0, 0.0, screen_width(), box_height, color_u8!(0, 0, 0, 200));
+        
+        // Tutorial message
+        let message = state.tutorial_step.message();
+        let lines: Vec<&str> = message.split('\n').collect();
+        
+        for (i, line) in lines.iter().enumerate() {
+            let text_w = measure_text(line, None, 20, 1.0).width;
+            draw_text(line, 
+                (screen_width() - text_w) / 2.0, 
+                25.0 + i as f32 * 24.0, 
+                20.0, WHITE);
+        }
+        
+        // Step indicator
+        let step_num = match state.tutorial_step {
+            TutorialStep::Welcome => 0,
+            TutorialStep::RepairReactor => 1,
+            TutorialStep::RepairShields => 2,
+            TutorialStep::RepairWeapon => 3,
+            TutorialStep::RepairEngine => 4,
+            TutorialStep::Complete => 5,
+        };
+        let step_text = format!("Step {}/4", step_num.min(4));
+        draw_text(&step_text, 20.0, box_height - 10.0, 16.0, GRAY);
+        
+        // Dismiss hint for welcome
+        if state.tutorial_step == TutorialStep::Welcome {
+            draw_text("[Press E to continue]", screen_width() - 180.0, box_height - 10.0, 14.0, YELLOW);
+        }
+    }
+
+    fn draw_interior(&self, state: &GameState) {
+        let interior = &state.interior;
+        
+        // Camera offset to center on player
+        // Handle case where interior is smaller than screen
+        let cam_x = if interior.width < screen_width() {
+            (screen_width() - interior.width) / 2.0
+        } else {
+            (screen_width() / 2.0 - state.player.position.x)
+                .clamp(screen_width() - interior.width, 0.0)
+        };
+        let cam_y = if interior.height < screen_height() {
+            (screen_height() - interior.height) / 2.0
+        } else {
+            (screen_height() / 2.0 - state.player.position.y)
+                .clamp(screen_height() - interior.height, 0.0)
+        };
+        
+        // Background (void)
+        draw_rectangle(0.0, 0.0, screen_width(), screen_height(), color_u8!(10, 10, 15, 255));
+        
+        // Draw rooms
+        for room in &interior.rooms {
+            let rx = cam_x + room.x;
+            let ry = cam_y + room.y;
+            
+            // Room floor
+            draw_rectangle(rx, ry, room.width, room.height, room.color());
+            
+            // Room outline (highlighted if tutorial target)
+            let is_target = state.tutorial_step.target_room() == Some(room.id);
+            if is_target && !room.is_fully_repaired() {
+                // Pulsing yellow highlight
+                let pulse = ((state.frame_count as f32 * 0.1).sin() * 0.5 + 0.5) * 155.0 + 100.0;
+                draw_rectangle_lines(rx - 2.0, ry - 2.0, room.width + 4.0, room.height + 4.0, 4.0, 
+                    Color::new(1.0, 1.0, 0.0, pulse / 255.0));
+            } else {
+                draw_rectangle_lines(rx, ry, room.width, room.height, 2.0, color_u8!(70, 70, 80, 255));
+            }
+            
+            // Draw repair points
+            for point in &room.repair_points {
+                let px = rx + point.x;
+                let py = ry + point.y;
+                let half = crate::interior::REPAIR_POINT_SIZE / 2.0;
+                
+                if point.repaired {
+                    // Repaired - green
+                    draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(30, 100, 30, 255));
+                    draw_rectangle_lines(px - half, py - half, half * 2.0, half * 2.0, 2.0, GREEN);
+                } else {
+                    // Needs repair - red/orange
+                    draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(100, 40, 30, 255));
+                    draw_rectangle_lines(px - half, py - half, half * 2.0, half * 2.0, 2.0, ORANGE);
+                }
+            }
+            
+            // Room name (if any)
+            let name = room.name();
+            if !name.is_empty() {
+                let text_size = 18.0;
+                let text_w = measure_text(name, None, text_size as u16, 1.0).width;
+                draw_text(name, 
+                    rx + (room.width - text_w) / 2.0, 
+                    ry + 24.0, 
+                    text_size, WHITE);
+                
+                // Show repair progress
+                if !room.repair_points.is_empty() {
+                    let progress = format!("{}/{}", room.repaired_count(), room.repair_points.len());
+                    let prog_w = measure_text(&progress, None, 14, 1.0).width;
+                    draw_text(&progress, rx + (room.width - prog_w) / 2.0, ry + 42.0, 14.0, 
+                        if room.is_fully_repaired() { GREEN } else { ORANGE });
+                }
+            }
+        }
+        
+        // Draw player
+        let player_screen_x = cam_x + state.player.position.x;
+        let player_screen_y = cam_y + state.player.position.y;
+        
+        // Player body
+        draw_circle(player_screen_x, player_screen_y, state.player.size, color_u8!(100, 200, 255, 255));
+        draw_circle_lines(player_screen_x, player_screen_y, state.player.size, 2.0, WHITE);
+        
+        // Facing direction
+        let facing_end = vec2(player_screen_x, player_screen_y) + state.player.facing * state.player.size;
+        draw_line(player_screen_x, player_screen_y, facing_end.x, facing_end.y, 2.0, WHITE);
+        
+        // Interaction prompt for repair points
+        if let Some(room) = interior.room_at(state.player.position) {
+            if !room.repair_points.is_empty() {
+                // Check if standing on an unrepaired point
+                if let Some(point_idx) = room.repair_point_at(state.player.position) {
+                    if !room.repair_points[point_idx].repaired {
+                        let scrap_cost = 10;
+                        let power_cost = match room.room_type {
+                            crate::interior::RoomType::Module(crate::ship::ModuleType::Core) => 0,
+                            crate::interior::RoomType::Module(crate::ship::ModuleType::Weapon) => 2,
+                            crate::interior::RoomType::Module(crate::ship::ModuleType::Defense) => 2,
+                            crate::interior::RoomType::Module(crate::ship::ModuleType::Utility) => 1,
+                            crate::interior::RoomType::Module(crate::ship::ModuleType::Engine) => 3,
+                            crate::interior::RoomType::Cockpit => 2,
+                            crate::interior::RoomType::Medbay => 1,
+                            _ => 0,
+                        };
+                        
+                        let is_reactor = power_cost == 0;
+                        
+                        let can_afford_scrap = state.resources.scrap >= scrap_cost;
+                        let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
+                        
+                        let cost_text = if is_reactor {
+                            format!("{scrap_cost} Scrap")
+                        } else {
+                            format!("{scrap_cost} Scrap + {power_cost} Power")
+                        };
+                        
+                        let label = if can_afford_scrap && can_afford_power {
+                            format!("[E] Repair ({})", cost_text)
+                        } else if !can_afford_scrap {
+                            format!("Need {scrap_cost} Scrap")
+                        } else {
+                            format!("Need {power_cost} Power (Repair Reactor)")
+                        };
+                        
+                        let color = if can_afford_scrap && can_afford_power { YELLOW } else { RED };
+                        
+                        draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
+                    }
+                }
+            }
+        }
     }
 
     /// Draws the main menu screen.
@@ -397,15 +592,8 @@ impl Renderer {
             scrap_color,
         );
 
-        // Credits
-        draw_text(
-            &format!("CREDITS: {}", state.resources.credits),
-            20.0,
-            48.0,
-            18.0,
-            color_u8!(200, 200, 100, 255),
-        );
-
+        // Credits (Removed/Replced)
+        
         // === CENTER SECTION: Power Meter ===
         let meter_width = 200.0;
         let meter_height = 20.0;
@@ -415,33 +603,30 @@ impl Renderer {
         // Power meter background
         draw_rectangle(meter_x, meter_y, meter_width, meter_height, color_u8!(40, 40, 40, 255));
         
-        // Power level (assuming max power around 20 for scaling)
-        let power = state.resources.power;
-        let power_pct = (power.abs() as f32 / 20.0).min(1.0);
+        // Power level: Used / Total
+        // If total is 0, just show empty or red
+        let max_display_power = 20.0; // Reasonable max for scaling bar visually
+        let total_pct = (state.total_power as f32 / max_display_power).min(1.0);
+        let used_pct = (state.used_power as f32 / max_display_power).min(1.0);
         
-        // Color based on power level (threat)
-        let power_color = if power >= 16 {
-            RED
-        } else if power >= 10 {
-            ORANGE
-        } else if power >= 5 {
-            YELLOW
-        } else {
-            GREEN
-        };
+        // Draw Total Power (Available Capacity) as a dark bar
+        draw_rectangle(meter_x, meter_y, meter_width * total_pct, meter_height, color_u8!(60, 60, 100, 255));
         
-        draw_rectangle(meter_x, meter_y, meter_width * power_pct, meter_height, power_color);
+        // Draw Used Power as a filled bar
+        let power_color = if state.used_power > state.total_power { RED } else { color_u8!(100, 255, 100, 255) };
+        draw_rectangle(meter_x, meter_y, meter_width * used_pct, meter_height, power_color);
+        
         draw_rectangle_lines(meter_x, meter_y, meter_width, meter_height, 2.0, WHITE);
         
         // Power text
-        let power_text = format!("POWER: {}", power);
+        let power_text = format!("POWER: {} / {}", state.used_power, state.total_power);
         let power_size = measure_text(&power_text, None, 16, 1.0);
         draw_text(
             &power_text,
             meter_x + meter_width / 2.0 - power_size.width / 2.0,
             meter_y + 15.0,
             16.0,
-            WHITE,
+            WHITE
         );
 
         // === RIGHT SECTION: Timer & Status ===
@@ -449,7 +634,22 @@ impl Renderer {
         
         match state.engine_state {
             EngineState::Idle => {
-                draw_text("ENGINE: IDLE", screen_width() - 180.0, 28.0, 20.0, GRAY);
+                // Check if repairs have started but not enough to charge
+                let mut engine_repair_pct = 0.0;
+                for room in &state.interior.rooms {
+                    if let crate::interior::RoomType::Module(crate::ship::ModuleType::Engine) = room.room_type {
+                         if !room.repair_points.is_empty() {
+                            engine_repair_pct = room.repaired_count() as f32 / room.repair_points.len() as f32;
+                         }
+                    }
+                }
+                
+                if engine_repair_pct > 0.0 {
+                     draw_text(&format!("ENGINE: PREPARING ({:.0}%)", engine_repair_pct * 100.0), screen_width() - 220.0, 28.0, 20.0, YELLOW);
+                     draw_text("REQUIRE > 25%", screen_width() - 220.0, 48.0, 16.0, GRAY);
+                } else {
+                    draw_text("ENGINE: IDLE", screen_width() - 180.0, 28.0, 20.0, GRAY);
+                }
             }
             EngineState::Charging => {
                 let mins = (state.escape_timer / 60.0).floor() as i32;
@@ -505,51 +705,46 @@ impl Renderer {
         let sidebar_y = 60.0;
 
         // Sidebar background
-        draw_rectangle(sidebar_x, sidebar_y, sidebar_width, 120.0, color_u8!(25, 25, 35, 220));
-        draw_rectangle_lines(sidebar_x, sidebar_y, sidebar_width, 120.0, 1.0, color_u8!(60, 60, 80, 255));
+        draw_rectangle(sidebar_x, sidebar_y, sidebar_width, 100.0, color_u8!(25, 25, 35, 220));
+        draw_rectangle_lines(sidebar_x, sidebar_y, sidebar_width, 100.0, 1.0, color_u8!(60, 60, 80, 255));
 
-        // Find core and display health
-        if let Some(core_pos) = state.ship.find_core() {
-            if let Some(core) = &state.ship.grid[core_pos.0][core_pos.1] {
-                // Core Health label
-                draw_text("CORE STATUS", sidebar_x + 10.0, sidebar_y + 20.0, 16.0, WHITE);
-                
-                // Health bar
-                let bar_x = sidebar_x + 10.0;
-                let bar_y = sidebar_y + 30.0;
-                let bar_width = sidebar_width - 20.0;
-                let bar_height = 16.0;
-                let hp_pct = core.health / core.max_health;
+        // Ship Integrity label
+        draw_text("SHIP INTEGRITY", sidebar_x + 10.0, sidebar_y + 20.0, 14.0, WHITE);
+        
+        // Health bar
+        let bar_x = sidebar_x + 10.0;
+        let bar_y = sidebar_y + 30.0;
+        let bar_width = sidebar_width - 20.0;
+        let bar_height = 16.0;
+        let hp_pct = state.ship_integrity / state.ship_max_integrity;
 
-                draw_rectangle(bar_x, bar_y, bar_width, bar_height, color_u8!(60, 20, 20, 255));
-                draw_rectangle(bar_x, bar_y, bar_width * hp_pct, bar_height, RED);
-                draw_rectangle_lines(bar_x, bar_y, bar_width, bar_height, 1.0, WHITE);
+        // Color based on health
+        let hp_color = if hp_pct > 0.5 {
+            GREEN
+        } else if hp_pct > 0.25 {
+            YELLOW
+        } else {
+            RED
+        };
 
-                // HP text
-                draw_text(
-                    &format!("{:.0}/{:.0}", core.health, core.max_health),
-                    bar_x + 5.0,
-                    bar_y + 12.0,
-                    14.0,
-                    WHITE,
-                );
+        draw_rectangle(bar_x, bar_y, bar_width, bar_height, color_u8!(30, 30, 30, 255));
+        draw_rectangle(bar_x, bar_y, bar_width * hp_pct, bar_height, hp_color);
+        draw_rectangle_lines(bar_x, bar_y, bar_width, bar_height, 1.0, WHITE);
 
-                // Level indicator
-                draw_text(
-                    &format!("Level: {}", core.level),
-                    sidebar_x + 10.0,
-                    sidebar_y + 65.0,
-                    14.0,
-                    GRAY,
-                );
-            }
-        }
+        // HP text
+        draw_text(
+            &format!("{:.0}/{:.0}", state.ship_integrity, state.ship_max_integrity),
+            bar_x + 5.0,
+            bar_y + 12.0,
+            14.0,
+            WHITE,
+        );
 
         // Enemy count
         draw_text(
             &format!("Enemies: {}", state.enemies.len()),
             sidebar_x + 10.0,
-            sidebar_y + 90.0,
+            sidebar_y + 65.0,
             14.0,
             ORANGE,
         );
@@ -558,7 +753,7 @@ impl Renderer {
         draw_text(
             &format!("Projectiles: {}", state.projectiles.len()),
             sidebar_x + 10.0,
-            sidebar_y + 108.0,
+            sidebar_y + 83.0,
             14.0,
             YELLOW,
         );

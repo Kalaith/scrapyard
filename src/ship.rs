@@ -48,32 +48,31 @@ impl Ship {
     pub fn new(width: usize, height: usize) -> Self {
         let mut grid = vec![vec![None; height]; width];
         
-        // Initialize starting ship layout
+        // Initialize starting ship layout - all modules start DESTROYED
         let cx = width / 2;
         let cy = height / 2;
         
-        // Core (Active)
+        // Core (Destroyed - needs repair)
         let mut core = Module::new(ModuleType::Core);
-        core.state = ModuleState::Active;
-        core.health = 1000.0;
+        core.state = ModuleState::Destroyed;
+        core.health = 0.0;
         core.max_health = 1000.0;
         grid[cx][cy] = Some(core);
 
-        // Adjacent slots - mix of weapons and empty
-        // Left: Weapon (Active)
+        // Left: Weapon (Destroyed)
         let mut weapon1 = Module::new(ModuleType::Weapon);
-        weapon1.state = ModuleState::Active;
+        weapon1.state = ModuleState::Destroyed;
         grid[cx-1][cy] = Some(weapon1);
         
-        // Right: Weapon (Active)
+        // Right: Weapon (Destroyed)
         let mut weapon2 = Module::new(ModuleType::Weapon);
-        weapon2.state = ModuleState::Active;
+        weapon2.state = ModuleState::Destroyed;
         grid[cx+1][cy] = Some(weapon2);
         
         // Top: Empty slot (for building)
         grid[cx][cy-1] = Some(Module::new(ModuleType::Empty));
         
-        // Bottom: Defense (Destroyed - needs repair)
+        // Bottom: Defense (Destroyed)
         let defense = Module::new(ModuleType::Defense);
         grid[cx][cy+1] = Some(defense);
         

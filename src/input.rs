@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 use crate::constants::*;
-use crate::state::{GameState, GamePhase};
+use crate::state::{GameState, GamePhase, ViewMode};
 use crate::events::{EventBus, UIEvent};
 
 /// Captures current input state for the frame
@@ -14,19 +14,23 @@ pub struct InputState {
     pub enter_pressed: bool,
     pub space_pressed: bool,
     pub pause_pressed: bool,
+    pub tab_pressed: bool,
+    pub interact_pressed: bool,
 }
 
 impl InputState {
     pub fn capture() -> Self {
         Self {
             mouse_pos: mouse_position().into(),
-            mouse_world_pos: None, // Set after screen_to_grid
+            mouse_world_pos: None,
             left_click: is_mouse_button_pressed(MouseButton::Left),
             right_click: is_mouse_button_pressed(MouseButton::Right),
             escape_pressed: is_key_pressed(KeyCode::Escape),
             enter_pressed: is_key_pressed(KeyCode::Enter),
             space_pressed: is_key_pressed(KeyCode::Space),
             pause_pressed: is_key_pressed(KeyCode::P),
+            tab_pressed: is_key_pressed(KeyCode::Tab),
+            interact_pressed: is_key_pressed(KeyCode::E),
         }
     }
 }
@@ -60,13 +64,11 @@ impl InputManager {
     }
 
     fn handle_menu_input(&self, input: &InputState, events: &mut EventBus) {
-        // Check for Enter key
         if input.enter_pressed || input.space_pressed {
             events.push_ui(UIEvent::StartGame);
             return;
         }
 
-        // Check for button click
         if input.left_click {
             let btn_width = 200.0;
             let btn_height = 50.0;
@@ -86,7 +88,15 @@ impl InputManager {
         }
     }
 
-    fn handle_gameplay_input(&mut self, input: &InputState, state: &GameState, events: &mut EventBus) {
+    fn handle_gameplay_input(&mut self, input: &InputState, state: &mut GameState, events: &mut EventBus) {
+        // Tab toggles view mode
+        if input.tab_pressed {
+            state.view_mode = match state.view_mode {
+                ViewMode::Interior => ViewMode::Exterior,
+                ViewMode::Exterior => ViewMode::Interior,
+            };
+        }
+
         // Pause toggle
         if input.pause_pressed {
             if state.paused {
@@ -101,17 +111,99 @@ impl InputManager {
             events.push_ui(UIEvent::ReturnToMenu);
         }
 
-        // Left click on grid
-        if input.left_click {
-            if let Some((x, y)) = input.mouse_world_pos {
-                self.handle_grid_click(x, y, state, events);
+        // View-specific input
+        match state.view_mode {
+            ViewMode::Interior => {
+                // Player movement is handled in player.update()
+                // E key for interaction with repair points
+                if input.interact_pressed {
+                    use crate::state::TutorialStep;
+                    
+                    // Handle welcome message dismissal
+                    if state.tutorial_step == TutorialStep::Welcome {
+                        state.tutorial_step = TutorialStep::RepairReactor;
+                        return;
+                    }
+                    
+                    // Find current room and repair point
+                    if let Some(room_idx) = state.interior.rooms.iter().position(|r| r.contains(state.player.position)) {
+                        let room = &state.interior.rooms[room_idx];
+                        if let Some(point_idx) = room.repair_point_at(state.player.position) {
+                            if !room.repair_points[point_idx].repaired {
+                                // Determine costs
+                                let scrap_cost = 10;
+                                let is_reactor = match room.room_type {
+                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Core) => true,
+                                    _ => false,
+                                };
+                                
+                                let power_cost = match room.room_type {
+                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Core) => 0,
+                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Weapon) => 2,
+                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Defense) => 2,
+                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Utility) => 1,
+                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Engine) => 3,
+                                    crate::interior::RoomType::Cockpit => 2,
+                                    crate::interior::RoomType::Medbay => 1,
+                                    _ => 0,
+                                };
+                                
+                                // Check affordability
+                                if state.resources.scrap < scrap_cost {
+                                    // TODO: Show visual feedback "Not enough scrap" (maybe via UI event)
+                                    return;
+                                }
+                                
+                                // Check power limit (unless it's the reactor itself)
+                                if !is_reactor {
+                                    if state.used_power + power_cost > state.total_power {
+                                        // TODO: Show visual feedback "Not enough power"
+                                        return;
+                                    }
+                                }
+                                
+                                // Deduct costs and repair
+                                state.resources.scrap -= scrap_cost;
+                                state.interior.rooms[room_idx].repair_points[point_idx].repaired = true;
+                                
+                                if power_cost > 0 {
+                                    state.used_power += power_cost; // Update immediate usage tracking locally if needed, but next frame update_power fixes it
+                                }
+                                
+                                // Advance tutorial if this is the target room (just need 1 repair)
+                                if let Some(target) = state.tutorial_step.target_room() {
+                                    if room_idx == target {
+                                        state.tutorial_step = state.tutorial_step.next();
+                                    }
+                                }
+                                
+                                // Check if room is now fully repaired - activate module
+                                if state.interior.rooms[room_idx].is_fully_repaired() {
+                                    if let Some((gx, gy)) = state.interior.rooms[room_idx].module_index {
+                                        if let Some(module) = &mut state.ship.grid[gx][gy] {
+                                            module.state = crate::ship::ModuleState::Active;
+                                            module.health = module.max_health;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-        }
+            ViewMode::Exterior => {
+                // Mouse-based interaction (legacy)
+                if input.left_click {
+                    if let Some((x, y)) = input.mouse_world_pos {
+                        self.handle_grid_click(x, y, state, events);
+                    }
+                }
 
-        // Right click for upgrade (if holding a module)
-        if input.right_click {
-            if let Some((x, y)) = input.mouse_world_pos {
-                events.push_ui(UIEvent::Upgrade(x, y));
+                if input.right_click {
+                    if let Some((x, y)) = input.mouse_world_pos {
+                        events.push_ui(UIEvent::Upgrade(x, y));
+                    }
+                }
             }
         }
     }
@@ -123,7 +215,6 @@ impl InputManager {
                     events.push_ui(UIEvent::Repair(x, y));
                 }
                 crate::ship::ModuleState::Active | crate::ship::ModuleState::Offline => {
-                    // Check if this is the engine
                     if module.module_type == crate::ship::ModuleType::Engine 
                        && module.state == crate::ship::ModuleState::Active {
                         events.push_ui(UIEvent::ActivateEngine);
