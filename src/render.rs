@@ -208,43 +208,72 @@ impl Renderer {
         // Interaction prompt for repair points
         if let Some(room) = interior.room_at(state.player.position) {
             if !room.repair_points.is_empty() {
+                // Draw repair tooltips (existing logic)
+                // ... (omitted for brevity in replacement, but I need to be careful not to delete it if I target lines)
+                // Actually I am inside draw_interior_view. Let's append scrap drawing after repair points.
+                
+                // Draw Scrap Piles
+                for pile in &state.scrap_piles {
+                    if !pile.active { continue; }
+                    let screen_pos_x = cam_x + pile.position.x;
+                    let screen_pos_y = cam_y + pile.position.y;
+                    
+                    // Draw pile graphic (simple circles for now)
+                    draw_circle(screen_pos_x, screen_pos_y, 8.0, BROWN);
+                    draw_circle(screen_pos_x, screen_pos_y, 6.0, DARKBROWN);
+                    
+                    // Highlight if close
+                    if pile.position.distance(state.player.position) < 40.0 {
+                        draw_circle_lines(screen_pos_x, screen_pos_y, 12.0, 2.0, YELLOW);
+                        if state.gathering_target.is_none() {
+                             draw_text("[Hold E] Scavenge", screen_pos_x - 40.0, screen_pos_y - 15.0, 16.0, WHITE);
+                        }
+                    }
+                }
+                
+                // Draw Gathering Progress
+                if let Some(_) = state.gathering_target {
+                    if state.gathering_timer > 0.0 {
+                        let progress = (state.gathering_timer / 2.0).clamp(0.0, 1.0);
+                        let bar_w = 40.0;
+                        let bar_h = 6.0;
+                        let px = player_screen_x - bar_w / 2.0;
+                        let py = player_screen_y - 30.0;
+                        
+                        draw_rectangle(px, py, bar_w, bar_h, BLACK);
+                        draw_rectangle(px, py, bar_w * progress, bar_h, GREEN);
+                    }
+                }
+
                 // Check if standing on an unrepaired point
                 if let Some(point_idx) = room.repair_point_at(state.player.position) {
                     if !room.repair_points[point_idx].repaired {
-                        let scrap_cost = 10;
-                        let power_cost = match room.room_type {
-                            crate::interior::RoomType::Module(crate::ship::ModuleType::Core) => 0,
-                            crate::interior::RoomType::Module(crate::ship::ModuleType::Weapon) => 2,
-                            crate::interior::RoomType::Module(crate::ship::ModuleType::Defense) => 2,
-                            crate::interior::RoomType::Module(crate::ship::ModuleType::Utility) => 1,
-                            crate::interior::RoomType::Module(crate::ship::ModuleType::Engine) => 3,
-                            crate::interior::RoomType::Cockpit => 2,
-                            crate::interior::RoomType::Medbay => 1,
-                            _ => 0,
-                        };
-                        
-                        let is_reactor = power_cost == 0;
-                        
-                        let can_afford_scrap = state.resources.scrap >= scrap_cost;
-                        let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
-                        
-                        let cost_text = if is_reactor {
-                            format!("{scrap_cost} Scrap")
-                        } else {
-                            format!("{scrap_cost} Scrap + {power_cost} Power")
-                        };
-                        
-                        let label = if can_afford_scrap && can_afford_power {
-                            format!("[E] Repair ({})", cost_text)
-                        } else if !can_afford_scrap {
-                            format!("Need {scrap_cost} Scrap")
-                        } else {
-                            format!("Need {power_cost} Power (Repair Reactor)")
-                        };
-                        
-                        let color = if can_afford_scrap && can_afford_power { YELLOW } else { RED };
-                        
-                        draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
+                        // Find room index
+                        if let Some(room_idx) = interior.rooms.iter().position(|r| r.id == room.id) {
+                            if let Some((scrap_cost, power_cost)) = state.get_repair_cost(room_idx, point_idx) {
+                                let is_reactor = power_cost == 0;
+                                let can_afford_scrap = state.resources.scrap >= scrap_cost;
+                                let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
+                                
+                                let cost_text = if is_reactor {
+                                    format!("{scrap_cost} Scrap")
+                                } else {
+                                    format!("{scrap_cost} Scrap + {power_cost} Power")
+                                };
+                                
+                                let label = if can_afford_scrap && can_afford_power {
+                                    format!("[E] Repair ({})", cost_text)
+                                } else if !can_afford_scrap {
+                                    format!("Need {scrap_cost} Scrap")
+                                } else {
+                                    format!("Need {power_cost} Power (Repair Reactor)")
+                                };
+                                
+                                let color = if can_afford_scrap && can_afford_power { YELLOW } else { RED };
+                                
+                                draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
+                            }
+                        }
                     }
                 }
             }

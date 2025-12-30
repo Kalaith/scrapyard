@@ -42,6 +42,8 @@ impl Module {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ship {
     pub grid: Vec<Vec<Option<Module>>>,
+    #[serde(skip)]
+    pub path_cache: std::cell::RefCell<std::collections::HashMap<(usize, usize), Vec<(usize, usize)>>>,
 }
 
 impl Ship {
@@ -86,7 +88,10 @@ impl Ship {
         let engine = Module::new(ModuleType::Engine);
         grid[cx][cy+3] = Some(engine);
 
-        Self { grid }
+        Self { 
+            grid,
+            path_cache: std::cell::RefCell::new(std::collections::HashMap::new())
+        }
     }
 
     /// Check if a grid coordinate is a valid slot (has a module or empty slot).
@@ -118,6 +123,11 @@ impl Ship {
     /// Returns the path as a vector of (x, y) coordinates, or None if no path exists.
     pub fn calculate_path_to_core(&self, start: (usize, usize)) -> Option<Vec<(usize, usize)>> {
         use std::collections::{VecDeque, HashMap};
+        
+        // Check cache first
+        if let Some(path) = self.path_cache.borrow().get(&start) {
+            return Some(path.clone());
+        }
 
         let core_pos = self.find_core()?;
         if start == core_pos {
@@ -145,6 +155,10 @@ impl Ship {
                     path.push(pos);
                 }
                 path.reverse();
+                
+                // Cache the result
+                self.path_cache.borrow_mut().insert(start, path.clone());
+                
                 return Some(path);
             }
 
@@ -166,6 +180,11 @@ impl Ship {
         }
 
         None // No path found
+    }
+
+    /// Invalidate path cache (call when grid changes)
+    pub fn invalidate_cache(&self) {
+        self.path_cache.borrow_mut().clear();
     }
 }
 

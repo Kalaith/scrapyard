@@ -16,6 +16,7 @@ pub struct Player {
     pub size: f32,
     pub speed: f32,
     pub facing: Vec2,         // Direction player is facing
+    pub velocity: Vec2,       // Current velocity (for gathering logic)
     pub nearby_module: Option<(usize, usize)>, // Module player can interact with
 }
 
@@ -30,6 +31,7 @@ impl Player {
             size: PLAYER_SIZE,
             speed: PLAYER_SPEED,
             facing: vec2(0.0, -1.0),
+            velocity: Vec2::ZERO,
             nearby_module: None,
         }
     }
@@ -55,8 +57,9 @@ impl Player {
         if move_dir.length_squared() > 0.0 {
             move_dir = move_dir.normalize();
             self.facing = move_dir;
+            self.velocity = move_dir * self.speed;
             
-            let new_pos = self.position + move_dir * self.speed * dt;
+            let new_pos = self.position + self.velocity * dt;
             
             // Check collision with rooms - try full movement first
             if interior.is_walkable(new_pos) {
@@ -73,6 +76,8 @@ impl Player {
                     self.position = new_y;
                 }
             }
+        } else {
+            self.velocity = Vec2::ZERO;
         }
     }
 

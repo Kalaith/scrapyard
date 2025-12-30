@@ -85,3 +85,19 @@ impl Particle {
         }
     }
 }
+#[derive(Debug, Clone)]
+pub struct ScrapPile {
+    pub position: Vec2, // Room-relative or Global? Global is easier for drawing/collision
+    pub amount: i32,
+    pub active: bool,
+}
+
+impl ScrapPile {
+    pub fn new(position: Vec2, amount: i32) -> Self {
+        Self {
+            position,
+            amount,
+            active: true,
+        }
+    }
+}

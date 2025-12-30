@@ -2,6 +2,7 @@ use macroquad::prelude::*;
 use crate::constants::*;
 use crate::state::{GameState, GamePhase, ViewMode};
 use crate::events::{EventBus, UIEvent};
+use crate::layout::Layout;
 
 /// Captures current input state for the frame
 #[derive(Debug, Clone)]
@@ -53,7 +54,7 @@ impl InputManager {
         self.last_mouse_pos = input.mouse_pos;
         
         // Convert mouse to grid coords
-        input.mouse_world_pos = self.screen_to_grid(input.mouse_pos);
+        input.mouse_world_pos = Layout::screen_to_grid(input.mouse_pos);
         self.hovered_module = input.mouse_world_pos;
 
         match state.phase {
@@ -115,75 +116,81 @@ impl InputManager {
         match state.view_mode {
             ViewMode::Interior => {
                 // Player movement is handled in player.update()
-                // E key for interaction with repair points
+                
+                // Scrap Gathering Logic
+                // If E is held, increment timer. If released/moving, reset.
+                if is_key_down(KeyCode::E) {
+                     // Check if player is NOT moving (must stay still to gather)
+                     if state.player.velocity.length() < 0.1 {
+                         // Find nearest pile if not already targeting one
+                         if state.gathering_target.is_none() {
+                             let mut nearest = None;
+                             let mut min_dist = 40.0; // Interaction range
+                             
+                             for (i, pile) in state.scrap_piles.iter().enumerate() {
+                                 if !pile.active { continue; }
+                                 let d = pile.position.distance(state.player.position);
+                                 if d < min_dist {
+                                     min_dist = d;
+                                     nearest = Some(i);
+                                 }
+                             }
+                             state.gathering_target = nearest;
+                         }
+                         
+                         // Process gathering
+                         if let Some(target_idx) = state.gathering_target {
+                             state.gathering_timer += get_frame_time();
+                             
+                             // 2.0 seconds to gather regular pile
+                             if state.gathering_timer >= 2.0 {
+                                 if target_idx < state.scrap_piles.len() {
+                                     let amount = state.scrap_piles[target_idx].amount;
+                                     state.resources.add_scrap(amount);
+                                     state.scrap_piles[target_idx].active = false; // Mark collected
+                                     events.push_ui(UIEvent::Toggle(0, 0)); // Dummy event or maybe add a Collected event later
+                                     
+                                     // Reset
+                                     state.gathering_target = None;
+                                     state.gathering_timer = 0.0;
+                                 }
+                             }
+                         }
+                     } else {
+                         // Moving cancels gathering
+                         state.gathering_target = None;
+                         state.gathering_timer = 0.0;
+                     }
+                } else {
+                    // Key released cancels gathering
+                    state.gathering_target = None;
+                    state.gathering_timer = 0.0;
+                }
+
+                // E key for interaction with repair points (Single press interact, distinct from hold-to-gather)
+                // We prioritize manual repair if pressed once.
+                // To avoid conflict, repair is instant click, gathering is hold.
+                // But wait, attempt_interior_repair is instant?
+                // Yes. So if we just click E, we might repair.
+                // Let's keep repair as "Pressed" (one frame). Gathering requires "Down".
                 if input.interact_pressed {
                     use crate::state::TutorialStep;
                     
                     // Handle welcome message dismissal
                     if state.tutorial_step == TutorialStep::Welcome {
                         state.tutorial_step = TutorialStep::RepairReactor;
-                        return;
+                        // return; // Don't return, allow interaction same frame
                     }
                     
                     // Find current room and repair point
                     if let Some(room_idx) = state.interior.rooms.iter().position(|r| r.contains(state.player.position)) {
                         let room = &state.interior.rooms[room_idx];
                         if let Some(point_idx) = room.repair_point_at(state.player.position) {
-                            if !room.repair_points[point_idx].repaired {
-                                // Determine costs
-                                let scrap_cost = 10;
-                                let is_reactor = match room.room_type {
-                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Core) => true,
-                                    _ => false,
-                                };
-                                
-                                let power_cost = match room.room_type {
-                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Core) => 0,
-                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Weapon) => 2,
-                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Defense) => 2,
-                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Utility) => 1,
-                                    crate::interior::RoomType::Module(crate::ship::ModuleType::Engine) => 3,
-                                    crate::interior::RoomType::Cockpit => 2,
-                                    crate::interior::RoomType::Medbay => 1,
-                                    _ => 0,
-                                };
-                                
-                                // Check affordability
-                                if state.resources.scrap < scrap_cost {
-                                    // TODO: Show visual feedback "Not enough scrap" (maybe via UI event)
-                                    return;
-                                }
-                                
-                                // Check power limit (unless it's the reactor itself)
-                                if !is_reactor {
-                                    if state.used_power + power_cost > state.total_power {
-                                        // TODO: Show visual feedback "Not enough power"
-                                        return;
-                                    }
-                                }
-                                
-                                // Deduct costs and repair
-                                state.resources.scrap -= scrap_cost;
-                                state.interior.rooms[room_idx].repair_points[point_idx].repaired = true;
-                                
-                                if power_cost > 0 {
-                                    state.used_power += power_cost; // Update immediate usage tracking locally if needed, but next frame update_power fixes it
-                                }
-                                
+                            if state.attempt_interior_repair(room_idx, point_idx) {
                                 // Advance tutorial if this is the target room (just need 1 repair)
                                 if let Some(target) = state.tutorial_step.target_room() {
                                     if room_idx == target {
                                         state.tutorial_step = state.tutorial_step.next();
-                                    }
-                                }
-                                
-                                // Check if room is now fully repaired - activate module
-                                if state.interior.rooms[room_idx].is_fully_repaired() {
-                                    if let Some((gx, gy)) = state.interior.rooms[room_idx].module_index {
-                                        if let Some(module) = &mut state.ship.grid[gx][gy] {
-                                            module.state = crate::ship::ModuleState::Active;
-                                            module.health = module.max_health;
-                                        }
                                     }
                                 }
                             }
@@ -192,18 +199,7 @@ impl InputManager {
                 }
             }
             ViewMode::Exterior => {
-                // Mouse-based interaction (legacy)
-                if input.left_click {
-                    if let Some((x, y)) = input.mouse_world_pos {
-                        self.handle_grid_click(x, y, state, events);
-                    }
-                }
-
-                if input.right_click {
-                    if let Some((x, y)) = input.mouse_world_pos {
-                        events.push_ui(UIEvent::Upgrade(x, y));
-                    }
-                }
+                // Interaction removed as per request
             }
         }
     }
@@ -223,28 +219,6 @@ impl InputManager {
                     }
                 }
             }
-        }
-    }
-
-    fn screen_to_grid(&self, pos: Vec2) -> Option<(usize, usize)> {
-        let grid_width_px = GRID_WIDTH as f32 * CELL_SIZE;
-        let grid_height_px = GRID_HEIGHT as f32 * CELL_SIZE;
-        
-        let start_x = (screen_width() - grid_width_px) / 2.0;
-        let start_y = (screen_height() - grid_height_px) / 2.0;
-
-        if pos.x < start_x || pos.x > start_x + grid_width_px ||
-           pos.y < start_y || pos.y > start_y + grid_height_px {
-            return None;
-        }
-
-        let x = ((pos.x - start_x) / CELL_SIZE) as usize;
-        let y = ((pos.y - start_y) / CELL_SIZE) as usize;
-
-        if x < GRID_WIDTH && y < GRID_HEIGHT {
-            Some((x, y))
-        } else {
-            None
         }
     }
 }

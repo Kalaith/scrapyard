@@ -1,0 +1,7 @@
+{
+    "Pulse Turret": {
+        "damage": 25.0,
+        "range": 300.0,
+        "fire_rate": 0.8
+    }
+}

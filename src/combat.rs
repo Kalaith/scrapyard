@@ -4,6 +4,7 @@ use crate::entities::Projectile;
 use crate::ship::{ModuleType, ModuleState};
 use crate::constants::*;
 use crate::events::{EventBus, GameEvent};
+use crate::layout::Layout;
 
 pub fn update_combat(state: &mut GameState, dt: f32, events: &mut EventBus) {
     // 1. Modules Fire (Towers)
@@ -45,20 +46,21 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
             None => continue,
         };
         
-        // Base stats
-        let base_fire_rate = 0.8; // Shots per second at full power
-        let base_damage = 25.0;
-        let base_range = 300.0;
+        // Retrieve base stats from registry
+        let stats = state.module_registry.get(ModuleType::Weapon);
+        let base_fire_rate = stats.fire_rate;
+        let base_damage = stats.damage;
+        let base_range = stats.range;
         
         // Scale with repair percentage
         let effective_fire_rate = base_fire_rate * repair_pct;
         let effective_damage = base_damage * repair_pct;
-        let effective_range = base_range; // Range stays constant
+        let effective_range = base_range; // Range stays constant (or could scale)
         
         let fire_chance = effective_fire_rate * dt;
         
         if rand::gen_range(0.0, 1.0) < fire_chance {
-            let tower_pos = grid_to_screen(gx, gy);
+            let tower_pos = Layout::grid_to_screen_center(gx, gy);
             
             if let Some(target) = find_nearest_enemy(&state.enemies, tower_pos, effective_range) {
                 new_projectiles.push(Projectile::new(tower_pos, target, 400.0, effective_damage));
@@ -68,33 +70,6 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
     }
     
     state.projectiles.append(&mut new_projectiles);
-}
-
-fn grid_to_screen(x: usize, y: usize) -> Vec2 {
-    let start_x = (screen_width() - GRID_WIDTH as f32 * CELL_SIZE) / 2.0;
-    let start_y = (screen_height() - GRID_HEIGHT as f32 * CELL_SIZE) / 2.0;
-    vec2(
-        start_x + x as f32 * CELL_SIZE + CELL_SIZE / 2.0,
-        start_y + y as f32 * CELL_SIZE + CELL_SIZE / 2.0,
-    )
-}
-
-fn screen_to_grid(pos: Vec2) -> Option<(usize, usize)> {
-    let start_x = (screen_width() - GRID_WIDTH as f32 * CELL_SIZE) / 2.0;
-    let start_y = (screen_height() - GRID_HEIGHT as f32 * CELL_SIZE) / 2.0;
-    
-    if pos.x < start_x || pos.y < start_y {
-        return None;
-    }
-    
-    let x = ((pos.x - start_x) / CELL_SIZE) as usize;
-    let y = ((pos.y - start_y) / CELL_SIZE) as usize;
-    
-    if x < GRID_WIDTH && y < GRID_HEIGHT {
-        Some((x, y))
-    } else {
-        None
-    }
 }
 
 fn find_nearest_enemy(enemies: &[crate::entities::Enemy], pos: Vec2, range: f32) -> Option<Vec2> {
@@ -114,7 +89,7 @@ fn find_nearest_enemy(enemies: &[crate::entities::Enemy], pos: Vec2, range: f32)
 }
 
 fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
-    // Move projectiles
+    // 1. Move projectiles first
     for proj in &mut state.projectiles {
         proj.position += proj.velocity * dt;
         
@@ -125,42 +100,81 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
         }
     }
     
-    // Collision detection
+    // 2. Spatial Partitioning for Optimized Collision
+    // Simple grid buckets: Screen width/height divided into 100px chunks
+    // Key = (x/100, y/100) -> Vec of Enemy indices
+    let bucket_size = 100.0;
+    use std::collections::HashMap;
+    let mut buckets: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
+    
+    // Populate buckets with enemies
+    for (i, enemy) in state.enemies.iter().enumerate() {
+        if enemy.health <= 0.0 { continue; }
+        
+        let bx = (enemy.position.x / bucket_size).floor() as i32;
+        let by = (enemy.position.y / bucket_size).floor() as i32;
+        
+        // Add to main bucket and neighbors if near edge (simplified: just add to one for now, 
+        // effectively 100px cells. For perfect accuracy with large enemies, we'd check bounds, 
+        // but center point is okay for this optimization level given small enemy counts)
+        buckets.entry((bx, by)).or_default().push(i);
+        
+        // Overlap checks for edges (if enemy radius > bucket edge distance)
+        // For simplicity in this review pass, we'll assume strict bucket ownership by center point
+    }
+    
+    // Run Collisions
     for proj in state.projectiles.iter_mut() {
         if !proj.active { continue; }
         
-        for enemy in state.enemies.iter_mut() {
-            if enemy.health <= 0.0 { continue; }
-            
-            let hit_radius = match enemy.enemy_type {
-                crate::entities::EnemyType::Boss => 40.0,
-                crate::entities::EnemyType::Nanoguard => 15.0,
-                _ => 10.0,
-            };
-            
-            if proj.position.distance(enemy.position) < hit_radius {
-                enemy.health -= proj.damage;
-                proj.active = false;
-                
-                if enemy.health <= 0.0 {
-                    // Enemy killed - drop scrap based on type
-                    let scrap = match enemy.enemy_type {
-                        crate::entities::EnemyType::Nanodrone => 3,
-                        crate::entities::EnemyType::Nanoguard => 10,
-                        crate::entities::EnemyType::Leech => 5,
-                        crate::entities::EnemyType::Boss => 100,
-                    };
-                    state.resources.add_scrap(scrap);
-                    state.resources.credits += scrap / 2;
-                    
-                    events.push_game(GameEvent::EnemyKilled { 
-                        x: enemy.position.x, 
-                        y: enemy.position.y, 
-                        scrap_dropped: scrap 
-                    });
+        let bx = (proj.position.x / bucket_size).floor() as i32;
+        let by = (proj.position.y / bucket_size).floor() as i32;
+        
+        // Check local bucket and neighbors (3x3 grid) to ensure no edge cases missed
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                if let Some(enemy_indices) = buckets.get(&(bx + dx, by + dy)) {
+                    for &idx in enemy_indices {
+                         // Double check index validity just in case
+                        if idx >= state.enemies.len() { continue; }
+                        let enemy = &mut state.enemies[idx];
+                        
+                        if enemy.health <= 0.0 { continue; }
+                        
+                        let hit_radius = match enemy.enemy_type {
+                            crate::entities::EnemyType::Boss => 40.0,
+                            crate::entities::EnemyType::Nanoguard => 15.0,
+                            _ => 10.0,
+                        };
+                        
+                        if proj.position.distance(enemy.position) < hit_radius {
+                            enemy.health -= proj.damage;
+                            proj.active = false;
+                            
+                            if enemy.health <= 0.0 {
+                                // Enemy killed
+                                let scrap = match enemy.enemy_type {
+                                    crate::entities::EnemyType::Nanodrone => 3,
+                                    crate::entities::EnemyType::Nanoguard => 10,
+                                    crate::entities::EnemyType::Leech => 5,
+                                    crate::entities::EnemyType::Boss => 100,
+                                };
+                                state.resources.add_scrap(scrap);
+                                state.resources.credits += scrap / 2;
+                                
+                                events.push_game(GameEvent::EnemyKilled { 
+                                    x: enemy.position.x, 
+                                    y: enemy.position.y, 
+                                    scrap_dropped: scrap 
+                                });
+                            }
+                            break; // Proj destroyed
+                        }
+                    }
                 }
-                break;
+                if !proj.active { break; }
             }
+            if !proj.active { break; }
         }
     }
     
@@ -188,7 +202,7 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
     for enemy in &state.enemies {
         if enemy.health <= 0.0 { continue; }
         
-        if let Some(grid_pos) = screen_to_grid(enemy.position) {
+        if let Some(grid_pos) = Layout::screen_to_grid(enemy.position) {
             let (gx, gy) = grid_pos;
             
             for dx in -1i32..=1 {
@@ -198,7 +212,7 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
                     
                     if nx < GRID_WIDTH && ny < GRID_HEIGHT {
                         if state.ship.grid[nx][ny].is_some() {
-                            let module_pos = grid_to_screen(nx, ny);
+                            let module_pos = Layout::grid_to_screen_center(nx, ny);
                             let dist = enemy.position.distance(module_pos);
                             
                             if dist < attack_range {

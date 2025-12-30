@@ -107,6 +107,11 @@ pub struct GameState {
     pub engine_state: EngineState,
     pub escape_timer: f32,
     
+    // Scrap Gathering
+    pub scrap_piles: Vec<crate::entities::ScrapPile>,
+    pub gathering_target: Option<usize>,
+    pub gathering_timer: f32,
+
     // Entities
     pub enemies: Vec<Enemy>,
     pub projectiles: Vec<Projectile>,
@@ -119,7 +124,7 @@ impl GameState {
         let interior = ShipInterior::starter_ship();
         let player = Player::new_at(interior.player_start_position());
         
-        Self {
+        let mut state = Self {
             ship: Ship::new(GRID_WIDTH, GRID_HEIGHT),
             interior,
             resources: Resources::new(),
@@ -140,8 +145,16 @@ impl GameState {
             enemies: Vec::new(),
             projectiles: Vec::new(),
             particles: Vec::new(),
+            
+            scrap_piles: Vec::new(),
+            gathering_target: None,
+            gathering_timer: 0.0,
+            
             frame_count: 0,
-        }
+        };
+        
+        state.spawn_scrap_piles();
+        state
     }
 
     /// Start a new game, resetting all state to fresh values.
@@ -149,7 +162,7 @@ impl GameState {
         self.ship = Ship::new(GRID_WIDTH, GRID_HEIGHT);
         self.interior = ShipInterior::starter_ship();
         self.resources = Resources::new();
-        self.resources.scrap = 50; // Give starting scrap for repairs
+        self.resources.scrap = 50; // Low starting scrap, forcing gathering
         self.enemies.clear();
         self.projectiles.clear();
         self.particles.clear();
@@ -166,6 +179,35 @@ impl GameState {
         self.tutorial_step = TutorialStep::Welcome;
         self.tutorial_timer = 0.0;
         self.phase = GamePhase::Playing;
+        
+        self.scrap_piles.clear();
+        self.gathering_target = None;
+        self.gathering_timer = 0.0;
+        self.spawn_scrap_piles();
+    }
+
+    pub fn spawn_scrap_piles(&mut self) {
+        use macroquad::rand::ChooseRandom;
+        use crate::entities::ScrapPile;
+        
+        // Spawn 8-12 random scrap piles in random walkable rooms
+        let count = ::rand::random::<usize>() % 5 + 8;
+        
+        for _ in 0..count {
+            // Pick a random room
+            if let Some(room) = self.interior.rooms.choose() {
+                if room.room_type == crate::interior::RoomType::Empty { continue; }
+                
+                // Random pos within room
+                let w = room.width - 40.0;
+                let h = room.height - 40.0;
+                let x = room.x + 20.0 + macroquad::rand::gen_range(0.0, w);
+                let y = room.y + 20.0 + macroquad::rand::gen_range(0.0, h);
+                
+                let amount = macroquad::rand::gen_range(15, 40);
+                self.scrap_piles.push(ScrapPile::new(vec2(x, y), amount));
+            }
+        }
     }
 
     pub fn update(&mut self, dt: f32, events: &mut EventBus) {
@@ -212,12 +254,12 @@ impl GameState {
                          // Reactor GENERATES power (1 per point)
                          self.total_power += repaired;
                     },
-                    crate::interior::RoomType::Module(ModuleType::Weapon) => self.used_power += repaired * 2,   // 4 points = 8 power cost
-                    crate::interior::RoomType::Module(ModuleType::Defense) => self.used_power += repaired * 2,  // 4 points = 8 power cost
-                    crate::interior::RoomType::Module(ModuleType::Utility) => self.used_power += repaired * 1,  // 4 points = 4 power cost
-                    crate::interior::RoomType::Module(ModuleType::Engine) => self.used_power += repaired * 3,   // 8 points = 24 power cost
-                    crate::interior::RoomType::Cockpit => self.used_power += repaired * 2,                       // 3 points = 6 power cost
-                    crate::interior::RoomType::Medbay => self.used_power += repaired * 1,                        // 3 points = 3 power cost
+                    crate::interior::RoomType::Module(ModuleType::Weapon) => self.used_power += repaired * 1,   // 1 power per point
+                    crate::interior::RoomType::Module(ModuleType::Defense) => self.used_power += repaired * 1,  // 1 power per point
+                    crate::interior::RoomType::Module(ModuleType::Utility) => self.used_power += repaired * 1,  // 1 power per point
+                    crate::interior::RoomType::Module(ModuleType::Engine) => self.used_power += repaired * 1,   // 1 power per point
+                    crate::interior::RoomType::Cockpit => self.used_power += repaired * 1,                       // 1 power per point
+                    crate::interior::RoomType::Medbay => self.used_power += repaired * 1,                        // 1 power per point
                     _ => {}
                 }
             }
@@ -370,6 +412,84 @@ impl GameState {
         }
     }
 
+    /// Get cost to repair a specific point in a room
+    pub fn get_repair_cost(&self, room_idx: usize, _point_idx: usize) -> Option<(i32, i32)> {
+        if room_idx >= self.interior.rooms.len() {
+            return None;
+        }
+        let room = &self.interior.rooms[room_idx];
+        
+        // Base cost
+        let scrap_cost = 10;
+        
+        let power_cost = match room.room_type {
+            crate::interior::RoomType::Module(crate::ship::ModuleType::Core) => 0,
+            crate::interior::RoomType::Module(crate::ship::ModuleType::Weapon) => 2,
+            crate::interior::RoomType::Module(crate::ship::ModuleType::Defense) => 2,
+            crate::interior::RoomType::Module(crate::ship::ModuleType::Utility) => 1,
+            crate::interior::RoomType::Module(crate::ship::ModuleType::Engine) => 3,
+            crate::interior::RoomType::Cockpit => 2,
+            crate::interior::RoomType::Medbay => 1,
+            _ => 0,
+        };
+        
+        Some((scrap_cost, power_cost))
+    }
+
+    /// Attempt to repair an interior point
+    pub fn attempt_interior_repair(&mut self, room_idx: usize, point_idx: usize) -> bool {
+         if room_idx >= self.interior.rooms.len() { return false; }
+         
+         // Use a scope to borrow room briefly or just access fields directly if possible
+         // We need to check costs which are on self, and mutate self.
+         
+         let (scrap_cost, power_cost) = match self.get_repair_cost(room_idx, point_idx) {
+             Some(c) => c,
+             None => return false,
+         };
+         
+         // Check if already repaired
+         if self.interior.rooms[room_idx].repair_points.len() <= point_idx || 
+            self.interior.rooms[room_idx].repair_points[point_idx].repaired {
+             return false;
+         }
+
+         let is_reactor = power_cost == 0;
+
+         // Check affordability
+         if self.resources.scrap < scrap_cost {
+             return false;
+         }
+         
+         if !is_reactor && (self.used_power + power_cost > self.total_power) {
+             return false;
+         }
+
+         // Perform repair
+         self.resources.deduct(scrap_cost);
+         self.interior.rooms[room_idx].repair_points[point_idx].repaired = true;
+         
+         // We don't update used_power here manually, because update_power() is called every frame
+         // and will detect the new repair status.
+         
+         // Check if fully repaired to activate module
+         if self.interior.rooms[room_idx].is_fully_repaired() {
+            if let Some((gx, gy)) = self.interior.rooms[room_idx].module_index {
+                // We need to invalidate path cache if a module state changes significantly? 
+                // Actually cache invalidation is for STRUCTURE changes (add/remove module), 
+                // but if we had blocked paths based on state, we'd need it. 
+                // Currently pathfinding ignores state (walkable), so no invalidation needed.
+                
+                if let Some(module) = &mut self.ship.grid[gx][gy] {
+                    module.state = ModuleState::Active;
+                    module.health = module.max_health;
+                }
+            }
+         }
+         
+         true
+    }
+
     pub fn save(&self, path: &str) -> std::io::Result<()> {
         let save_data = SaveData {
             ship: self.ship.clone(),
@@ -399,6 +519,11 @@ impl GameState {
                 life: p.lifetime,
                 max_life: p.max_lifetime,
                 color: (p.color.r, p.color.g, p.color.b, p.color.a),
+                active: p.active,
+            }).collect(),
+            scrap_piles: self.scrap_piles.iter().map(|p| SavedScrapPile {
+                pos: (p.position.x, p.position.y),
+                amount: p.amount,
                 active: p.active,
             }).collect(),
             frame_count: self.frame_count,
@@ -447,6 +572,12 @@ impl GameState {
             lifetime: s.life,
             max_lifetime: s.max_life,
             color: Color::new(s.color.0, s.color.1, s.color.2, s.color.3),
+            active: s.active,
+        }).collect();
+        
+        state.scrap_piles = save_data.scrap_piles.into_iter().map(|s| crate::entities::ScrapPile {
+            position: vec2(s.pos.0, s.pos.1),
+            amount: s.amount,
             active: s.active,
         }).collect();
         
@@ -519,6 +650,13 @@ struct SavedParticle {
 }
 
 #[derive(Serialize, Deserialize)]
+struct SavedScrapPile {
+    pos: (f32, f32),
+    amount: i32,
+    active: bool,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct SaveData {
     pub ship: Ship,
     pub resources: Resources,
@@ -528,5 +666,6 @@ pub struct SaveData {
     pub enemies: Vec<SavedEnemy>,
     pub projectiles: Vec<SavedProjectile>,
     pub particles: Vec<SavedParticle>,
+    pub scrap_piles: Vec<SavedScrapPile>,
     pub frame_count: u64,
 }

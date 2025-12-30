@@ -11,8 +11,8 @@ pub struct Resources {
 impl Resources {
     pub fn new() -> Self {
         Self {
-            scrap: 100, // Starting scrap
-            max_scrap: 500,
+            scrap: 50, // Starting scrap (lowered as requested)
+            max_scrap: 1000,
             power: 0,
             credits: 0,
         }

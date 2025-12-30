@@ -1,15 +1,23 @@
 use crate::ship::ModuleType;
 use std::collections::HashMap;
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WeaponConfig {
+    pub damage: f32,
+    pub range: f32,
+    pub fire_rate: f32,
+}
 
 #[derive(Debug, Clone)]
 pub struct ModuleStats {
     pub name: String,
     pub base_cost: i32,
-    pub power_consumption: i32, // Positive = Generation, Negative = Consumption
+    pub power_consumption: i32,
     pub max_health: f32,
-    pub range: f32,     // 0 for non-weapons
-    pub damage: f32,    // 0 for non-weapons
-    pub fire_rate: f32, // Rounds per second
+    pub range: f32,
+    pub damage: f32,
+    pub fire_rate: f32,
 }
 
 impl ModuleStats {
@@ -41,13 +49,21 @@ impl ModuleRegistry {
     pub fn new() -> Self {
         let mut stats = HashMap::new();
 
+        // Load weapon config from embedded JSON
+        let weapon_json = include_str!("../assets/stats/weapons.json");
+        let weapon_configs: HashMap<String, WeaponConfig> = serde_json::from_str(weapon_json)
+            .expect("Failed to parse weapons.json");
+
+        let default_weapon = WeaponConfig { damage: 10.0, range: 200.0, fire_rate: 1.0 };
+        let pulse_turret = weapon_configs.get("Pulse Turret").unwrap_or(&default_weapon);
+
         // 1. Core
         stats.insert(ModuleType::Core, ModuleStats::new("Power Core", 0, 10, 1000.0));
         
         // 2. Weapons
         stats.insert(ModuleType::Weapon, 
             ModuleStats::new("Pulse Turret", 20, -2, 100.0)
-            .with_combat(200.0, 10.0, 1.0)
+            .with_combat(pulse_turret.range, pulse_turret.damage, pulse_turret.fire_rate)
         );
 
         // 3. Defense
@@ -55,11 +71,7 @@ impl ModuleRegistry {
             ModuleStats::new("Shield Gen", 30, -3, 150.0)
         );
 
-        // 4. Utility (Generator implied by positive power? Or separate type?)
-        // For now, let's say "Utility" includes Solar Panels for specific implementation, 
-        // but if generic Utility, maybe just a recycler. 
-        // Let's assume there is a PowerGenerator module type missing from the enum or Utility can be one.
-        // Let's make Utility a "Recycler" for now (Consumer).
+        // 4. Utility
         stats.insert(ModuleType::Utility,
              ModuleStats::new("Recycler", 25, -1, 80.0)
         );
@@ -69,7 +81,7 @@ impl ModuleRegistry {
             ModuleStats::new("Hyperdrive", 500, -50, 500.0)
         );
 
-        // 6. Empty - No stats needed usually, or dummy
+        // 6. Empty
         stats.insert(ModuleType::Empty, ModuleStats::new("Empty Slot", 0, 0, 0.0));
 
         Self { stats }

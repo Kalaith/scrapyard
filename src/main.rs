@@ -9,6 +9,7 @@ mod assets;
 mod render;
 mod gameplay;
 mod entities;
+mod layout;
 mod ai;
 mod combat;
 mod events;
