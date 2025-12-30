@@ -45,26 +45,58 @@ impl Renderer {
         let btn_width = 200.0;
         let btn_height = 50.0;
         let btn_x = screen_width() / 2.0 - btn_width / 2.0;
-        let btn_y = screen_height() / 2.0 + 50.0;
+        
+        // Check if save file exists
+        let has_save = std::path::Path::new("save_slot_0.json").exists();
+        
+        // Continue button (only if save exists)
+        let mut next_y = screen_height() / 2.0 + 20.0;
+        if has_save {
+            let btn_y = next_y;
+            draw_rectangle(btn_x, btn_y, btn_width, btn_height, color_u8!(40, 80, 60, 255));
+            draw_rectangle_lines(btn_x, btn_y, btn_width, btn_height, 2.0, color_u8!(100, 180, 140, 255));
+            let continue_text = "CONTINUE";
+            let continue_size = measure_text(continue_text, None, 28, 1.0);
+            draw_text(continue_text, btn_x + btn_width / 2.0 - continue_size.width / 2.0, btn_y + btn_height / 2.0 + 8.0, 28.0, WHITE);
+            next_y += btn_height + 15.0;
+        }
 
+        // New Game button
+        let btn_y = next_y;
         draw_rectangle(btn_x, btn_y, btn_width, btn_height, color_u8!(60, 60, 80, 255));
         draw_rectangle_lines(btn_x, btn_y, btn_width, btn_height, 2.0, color_u8!(100, 100, 140, 255));
-
-        let start_text = "START GAME";
+        let start_text = "NEW GAME";
         let start_size = measure_text(start_text, None, 28, 1.0);
         draw_text(start_text, btn_x + btn_width / 2.0 - start_size.width / 2.0, btn_y + btn_height / 2.0 + 8.0, 28.0, WHITE);
 
-        let hint = "Click START GAME or press ENTER to begin";
+        let hint = if has_save { "Click CONTINUE to load or NEW GAME to start fresh" } 
+                   else { "Click NEW GAME or press ENTER to begin" };
         let hint_size = measure_text(hint, None, 18, 1.0);
         draw_text(hint, screen_width() / 2.0 - hint_size.width / 2.0, screen_height() - 50.0, 18.0, DARKGRAY);
     }
 
-    pub fn get_start_button_bounds(&self) -> (f32, f32, f32, f32) {
+    pub fn get_menu_button_bounds(&self) -> (Option<(f32, f32, f32, f32)>, (f32, f32, f32, f32)) {
         let btn_width = 200.0;
         let btn_height = 50.0;
         let btn_x = screen_width() / 2.0 - btn_width / 2.0;
-        let btn_y = screen_height() / 2.0 + 50.0;
-        (btn_x, btn_y, btn_width, btn_height)
+        let has_save = std::path::Path::new("save_slot_0.json").exists();
+        
+        let mut next_y = screen_height() / 2.0 + 20.0;
+        let continue_bounds = if has_save {
+            let bounds = (btn_x, next_y, btn_width, btn_height);
+            next_y += btn_height + 15.0;
+            Some(bounds)
+        } else {
+            None
+        };
+        
+        let new_game_bounds = (btn_x, next_y, btn_width, btn_height);
+        (continue_bounds, new_game_bounds)
+    }
+
+    pub fn get_start_button_bounds(&self) -> (f32, f32, f32, f32) {
+        let (_, new_game) = self.get_menu_button_bounds();
+        new_game
     }
 
     pub fn draw_game_over(&self, state: &GameState) {

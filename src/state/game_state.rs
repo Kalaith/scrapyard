@@ -32,7 +32,7 @@ pub enum EngineState {
     Escaped,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum ViewMode {
     Exterior,
     Interior,
@@ -441,6 +441,14 @@ impl GameState {
             }).collect(),
             upgrades: self.upgrades.clone(),
             frame_count: self.frame_count,
+            // Interior repair states
+            room_repair_states: self.interior.rooms.iter()
+                .map(|room| room.repair_points.iter().map(|rp| rp.repaired).collect())
+                .collect(),
+            player_pos: (self.player.position.x, self.player.position.y),
+            view_mode: self.view_mode,
+            tutorial_index: self.tutorial_state.current_index,
+            tutorial_completed: self.tutorial_state.completed,
         };
         let file = File::create(path)?;
         let writer = BufWriter::new(file);
@@ -489,6 +497,43 @@ impl GameState {
             amount: s.amount,
             active: s.active,
         }).collect();
+        
+        // Restore interior repair states
+        for (room_idx, repair_states) in save_data.room_repair_states.into_iter().enumerate() {
+            if room_idx < state.interior.rooms.len() {
+                for (point_idx, repaired) in repair_states.into_iter().enumerate() {
+                    if point_idx < state.interior.rooms[room_idx].repair_points.len() {
+                        state.interior.rooms[room_idx].repair_points[point_idx].repaired = repaired;
+                    }
+                }
+            }
+        }
+        
+        // Restore player position
+        state.player.position = vec2(save_data.player_pos.0, save_data.player_pos.1);
+        state.view_mode = save_data.view_mode;
+        
+        // Restore tutorial state
+        state.tutorial_state.current_index = save_data.tutorial_index;
+        state.tutorial_state.completed = save_data.tutorial_completed;
+        
         Ok(state)
+    }
+
+    /// Get path for a save slot
+    pub fn get_save_slot_path(slot: usize) -> String {
+        format!("save_slot_{}.json", slot)
+    }
+
+    /// Save to a specific slot
+    pub fn save_to_slot(&self, slot: usize) -> std::io::Result<()> {
+        let path = Self::get_save_slot_path(slot);
+        self.save(&path)
+    }
+
+    /// Load from a specific slot
+    pub fn load_from_slot(slot: usize) -> std::io::Result<Self> {
+        let path = Self::get_save_slot_path(slot);
+        Self::load_from_file(&path)
     }
 }

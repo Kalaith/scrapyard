@@ -43,7 +43,13 @@ impl Renderer {
     pub fn draw(&self, state: &GameState) {
         match state.phase {
             GamePhase::Menu => self.draw_menu(),
-            GamePhase::Playing => self.draw_gameplay(state),
+            GamePhase::Playing => {
+                self.draw_gameplay(state);
+                // Draw pause menu overlay if paused
+                if state.paused {
+                    self.draw_pause_menu(state, state.pause_menu_selection);
+                }
+            }
             GamePhase::GameOver => self.draw_game_over(state),
             GamePhase::Victory => self.draw_victory(state),
             GamePhase::InterRound => self.draw_upgrade_screen(state),

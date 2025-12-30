@@ -3,7 +3,7 @@ use crate::ship::ship::Ship;
 use crate::economy::resources::Resources;
 use crate::enemy::entities::EnemyType;
 use crate::economy::upgrades::GameUpgrades;
-use super::game_state::{GamePhase, EngineState};
+use super::game_state::{GamePhase, EngineState, ViewMode};
 
 #[derive(Serialize, Deserialize)]
 pub struct SavedEnemy {
@@ -55,4 +55,12 @@ pub struct SaveData {
     pub scrap_piles: Vec<SavedScrapPile>,
     pub upgrades: GameUpgrades,
     pub frame_count: u64,
+    // Interior repair states: room_id -> list of repaired repair point indices
+    pub room_repair_states: Vec<Vec<bool>>,
+    // Player state
+    pub player_pos: (f32, f32),
+    pub view_mode: ViewMode,
+    // Tutorial state
+    pub tutorial_index: usize,
+    pub tutorial_completed: bool,
 }

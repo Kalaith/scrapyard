@@ -5,9 +5,16 @@ use crate::simulation::constants::*;
 use crate::ship::interior::Room;
 use crate::ship::ship::{ModuleState, ModuleType};
 use crate::ui::input_manager::{InputManager, InputState};
+use crate::ui::pause_menu::PauseMenuOption;
 
 impl InputManager {
     pub fn handle_gameplay_input(&mut self, input: &InputState, state: &mut GameState, events: &mut EventBus) {
+        // If paused, handle pause menu input instead
+        if state.paused {
+            self.handle_pause_menu_input(input, state, events);
+            return;
+        }
+
         // Tab toggles view mode
         if input.tab_pressed {
             state.view_mode = match state.view_mode {
@@ -16,20 +23,91 @@ impl InputManager {
             };
         }
 
-        // Pause toggle
-        if input.pause_pressed {
-            let event = if state.paused { UIEvent::Resume } else { UIEvent::Pause };
-            events.push_ui(event);
+        // Escape opens pause menu
+        if input.escape_pressed {
+            events.push_ui(UIEvent::Pause);
+            return;
         }
 
-        // Escape to return to menu
-        if input.escape_pressed {
-            events.push_ui(UIEvent::ReturnToMenu);
+        // P also pauses
+        if input.pause_pressed {
+            events.push_ui(UIEvent::Pause);
+            return;
         }
 
         // View-specific input
         if state.view_mode == ViewMode::Interior {
             self.handle_interior_input(input, state, events);
+        }
+    }
+
+    fn handle_pause_menu_input(&mut self, input: &InputState, state: &mut GameState, events: &mut EventBus) {
+        let menu_options = PauseMenuOption::all();
+        let option_count = menu_options.len();
+
+        // ESC closes pause menu
+        if input.escape_pressed {
+            events.push_ui(UIEvent::Resume);
+            return;
+        }
+
+        // Calculate button bounds (must match pause_menu.rs layout)
+        let box_w = 300.0;
+        let box_h = 320.0;
+        let box_x = (screen_width() - box_w) / 2.0;
+        let box_y = (screen_height() - box_h) / 2.0;
+        let btn_w = 200.0;
+        let btn_h = 40.0;
+        let btn_x = box_x + (box_w - btn_w) / 2.0;
+        let start_y = box_y + 70.0;
+        let spacing = 50.0;
+
+        // Mouse hover updates selection
+        let (mx, my) = (input.mouse_pos.x, input.mouse_pos.y);
+        for i in 0..option_count {
+            let y = start_y + i as f32 * spacing;
+            if mx >= btn_x && mx <= btn_x + btn_w && my >= y && my <= y + btn_h {
+                state.pause_menu_selection = i;
+                
+                // Mouse click selects
+                if input.left_click {
+                    let selected = menu_options[i];
+                    match selected {
+                        PauseMenuOption::Resume => events.push_ui(UIEvent::Resume),
+                        PauseMenuOption::SaveGame => events.push_ui(UIEvent::SaveGame(0)),
+                        PauseMenuOption::LoadGame => events.push_ui(UIEvent::LoadGame(0)),
+                        PauseMenuOption::ReturnToMenu => events.push_ui(UIEvent::ReturnToMenu),
+                        PauseMenuOption::ExitGame => events.push_ui(UIEvent::ExitGame),
+                    }
+                    return;
+                }
+            }
+        }
+
+        // Arrow up
+        if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
+            state.pause_menu_selection = if state.pause_menu_selection == 0 {
+                option_count - 1
+            } else {
+                state.pause_menu_selection - 1
+            };
+        }
+
+        // Arrow down
+        if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::S) {
+            state.pause_menu_selection = (state.pause_menu_selection + 1) % option_count;
+        }
+
+        // Enter/Space selects
+        if input.enter_pressed || input.space_pressed {
+            let selected = menu_options[state.pause_menu_selection];
+            match selected {
+                PauseMenuOption::Resume => events.push_ui(UIEvent::Resume),
+                PauseMenuOption::SaveGame => events.push_ui(UIEvent::SaveGame(0)),
+                PauseMenuOption::LoadGame => events.push_ui(UIEvent::LoadGame(0)),
+                PauseMenuOption::ReturnToMenu => events.push_ui(UIEvent::ReturnToMenu),
+                PauseMenuOption::ExitGame => events.push_ui(UIEvent::ExitGame),
+            }
         }
     }
 
