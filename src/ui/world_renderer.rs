@@ -245,6 +245,7 @@ impl Renderer {
                 crate::enemy::entities::EnemyType::Nanodrone => GREEN,
                 crate::enemy::entities::EnemyType::Nanoguard => YELLOW,
                 crate::enemy::entities::EnemyType::Leech => PURPLE,
+                crate::enemy::entities::EnemyType::SiegeConstruct => DARKGRAY,
                 crate::enemy::entities::EnemyType::Boss => RED,
             };
 

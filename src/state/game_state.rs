@@ -15,6 +15,7 @@ use crate::enemy::entities::{Enemy, Projectile, Particle, ScrapPile};
 use crate::enemy::wave::WaveState;
 use super::tutorial::{TutorialStep, TutorialConfig, TutorialState};
 use super::persistence::{SaveData, SavedEnemy, SavedProjectile, SavedParticle, SavedScrapPile};
+use crate::data::settings::Settings;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum GamePhase {
@@ -69,6 +70,7 @@ pub struct GameState {
     pub wave_state: WaveState,
     pub repair_timer: f32,
     pub pause_menu_selection: usize,
+    pub settings: Settings,
 }
 
 impl GameState {
@@ -111,6 +113,7 @@ impl GameState {
             wave_state: WaveState::new(),
             repair_timer: 0.0,
             pause_menu_selection: 0,
+            settings: Settings::load(),
         };
         
         state.spawn_scrap_piles();
@@ -240,8 +243,8 @@ impl GameState {
     }
 
     fn update_resources(&mut self) {
-        // Power calculation moved to update_power() for consistency with interior system
-        self.resources.power = self.used_power;
+        // Power calculation is handled by update_power() - interior-based system only
+        // No additional resource updates needed currently
     }
 
     fn update_engine(&mut self, dt: f32, events: &mut EventBus) {
@@ -322,24 +325,8 @@ impl GameState {
         }
     }
 
-    pub fn activate_engine(&mut self, events: &mut EventBus) {
-        if self.engine_state == EngineState::Idle {
-            for row in &self.ship.grid {
-                for cell in row {
-                    if let Some(module) = cell {
-                        if module.module_type == ModuleType::Engine && module.state == ModuleState::Active {
-                            if self.engine_state == EngineState::Idle {
-                                self.engine_state = EngineState::Charging;
-                                self.escape_timer = ENGINE_CHARGE_BASE_TIME;
-                                events.push_game(GameEvent::EngineActivated);
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Note: Engine activation is now handled purely by update_engine() based on interior repair percentage.
+    // The legacy activate_engine() method has been removed.
 
     pub fn get_repair_cost(&self, room_idx: usize, _point_idx: usize) -> Option<(i32, i32)> {
         if room_idx >= self.interior.rooms.len() { return None; }
@@ -419,6 +406,8 @@ impl GameState {
                 speed: e.speed,
                 damage: e.damage,
                 target: e.target_module,
+                attached_to: e.attached_to,
+                ability_timer: e.ability_timer,
             }).collect(),
             projectiles: self.projectiles.iter().map(|p| SavedProjectile {
                 pos: (p.position.x, p.position.y),
@@ -477,6 +466,8 @@ impl GameState {
             speed: s.speed,
             damage: s.damage,
             target_module: s.target,
+            attached_to: s.attached_to,
+            ability_timer: s.ability_timer,
         }).collect();
         state.projectiles = save_data.projectiles.into_iter().map(|s| Projectile {
             position: vec2(s.pos.0, s.pos.1),

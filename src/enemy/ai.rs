@@ -137,20 +137,71 @@ pub fn update_enemies(state: &mut GameState, dt: f32) {
                 }
             }
             EnemyType::Leech => {
-                // Leech: Go for utility/core and attach
+                // Leech: Find utility module or core, attach when close, drain power
+                if enemy.attached_to.is_some() {
+                    // Already attached - stay in place (damage handled in combat.rs)
+                } else {
+                    // Try to find a utility module first
+                    let target = find_utility_module(&state.ship).or(state.ship.find_core());
+                    if let Some(t) = target {
+                        let target_pos = grid_to_screen(t.0, t.1);
+                        let dist = enemy.position.distance(target_pos);
+                        if dist < ENEMY_ATTACK_RANGE {
+                            // Attach to the module
+                            enemy.attached_to = Some(t);
+                            enemy.target_module = Some(t);
+                        } else {
+                            let dir = (target_pos - enemy.position).normalize_or_zero();
+                            enemy.position += dir * enemy.speed * dt;
+                            enemy.target_module = Some(t);
+                        }
+                    }
+                }
+            }
+            EnemyType::SiegeConstruct => {
+                // Siege: Very slow, high damage, targets hull/core directly
+                // Moves to center of screen (where ship is) and attacks
                 let dir = (core_pos - enemy.position).normalize_or_zero();
                 enemy.position += dir * enemy.speed * dt;
                 enemy.target_module = state.ship.find_core();
             }
             EnemyType::Boss => {
-                // Boss: Slow approach to center
+                // Boss: Slow approach, cycles through special abilities
                 let center = vec2(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0);
-                let dir = (center - enemy.position).normalize_or_zero();
-                enemy.position += dir * enemy.speed * dt;
-                enemy.target_module = state.ship.find_core();
+                let dist_to_center = enemy.position.distance(center);
+                
+                // Move toward center but stop at distance 150
+                if dist_to_center > 150.0 {
+                    let dir = (center - enemy.position).normalize_or_zero();
+                    enemy.position += dir * enemy.speed * dt;
+                }
+                
+                // Update ability timer
+                enemy.ability_timer += dt;
+                
+                // Boss targets weapons preferentially, then core
+                if let Some(target) = find_priority_target(&state.ship) {
+                    enemy.target_module = Some(target);
+                } else {
+                    enemy.target_module = state.ship.find_core();
+                }
             }
         }
     }
+}
+
+/// Find active utility modules for Leech targeting
+fn find_utility_module(ship: &Ship) -> Option<(usize, usize)> {
+    for x in 0..GRID_WIDTH {
+        for y in 0..GRID_HEIGHT {
+            if let Some(module) = &ship.grid[x][y] {
+                if module.state == ModuleState::Active && module.module_type == ModuleType::Utility {
+                    return Some((x, y));
+                }
+            }
+        }
+    }
+    None
 }
 
 fn get_core_screen_position(state: &GameState) -> Vec2 {

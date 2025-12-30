@@ -32,10 +32,17 @@ pub const ENEMY_GUARD_DAMAGE: f32 = 15.0;
 pub const ENEMY_LEECH_HP: f32 = 30.0;
 pub const ENEMY_LEECH_SPEED: f32 = 60.0;
 pub const ENEMY_LEECH_DAMAGE: f32 = 2.0;
+pub const ENEMY_LEECH_POWER_DRAIN: i32 = 1; // Power drained per tick when attached
+
+pub const ENEMY_SIEGE_HP: f32 = 200.0;
+pub const ENEMY_SIEGE_SPEED: f32 = 15.0;
+pub const ENEMY_SIEGE_DAMAGE: f32 = 30.0;
 
 pub const ENEMY_BOSS_HP: f32 = 1000.0;
 pub const ENEMY_BOSS_SPEED: f32 = 20.0;
 pub const ENEMY_BOSS_DAMAGE: f32 = 50.0;
+pub const BOSS_ABILITY_COOLDOWN: f32 = 8.0; // Seconds between boss abilities
+pub const BOSS_SPLIT_COUNT: usize = 3; // Number of drones spawned on boss death
 
 // Wave Logic
 pub const WAVE_GRACE_POWER: i32 = 5;

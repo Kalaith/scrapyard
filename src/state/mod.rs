@@ -35,9 +35,6 @@ pub fn process_ui_events(state: &mut GameState, events: &mut EventBus) {
             UIEvent::Toggle(x, y) => {
                 state.toggle_module(x, y);
             }
-            UIEvent::ActivateEngine => {
-                state.activate_engine(events);
-            }
             UIEvent::PurchaseUpgrade(id) => {
                 if state.phase == GamePhase::Victory {
                     state.phase = GamePhase::InterRound;

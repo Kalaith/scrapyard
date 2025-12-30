@@ -7,6 +7,7 @@ pub enum EnemyType {
     Nanodrone,
     Nanoguard,
     Leech,
+    SiegeConstruct, // Slow, high HP, attacks hull directly
     Boss,
 }
 
@@ -20,6 +21,8 @@ pub struct Enemy {
     pub speed: f32,
     pub damage: f32,
     pub target_module: Option<(usize, usize)>, // Grid coords
+    pub attached_to: Option<(usize, usize)>,   // For Leech: module it's attached to
+    pub ability_timer: f32,                     // For Boss: cooldown for special abilities
 }
 
 impl Enemy {
@@ -28,6 +31,7 @@ impl Enemy {
             EnemyType::Nanodrone => (ENEMY_DRONE_HP, ENEMY_DRONE_SPEED, ENEMY_DRONE_DAMAGE),
             EnemyType::Nanoguard => (ENEMY_GUARD_HP, ENEMY_GUARD_SPEED, ENEMY_GUARD_DAMAGE),
             EnemyType::Leech => (ENEMY_LEECH_HP, ENEMY_LEECH_SPEED, ENEMY_LEECH_DAMAGE),
+            EnemyType::SiegeConstruct => (ENEMY_SIEGE_HP, ENEMY_SIEGE_SPEED, ENEMY_SIEGE_DAMAGE),
             EnemyType::Boss => (ENEMY_BOSS_HP, ENEMY_BOSS_SPEED, ENEMY_BOSS_DAMAGE),
         };
 
@@ -40,6 +44,8 @@ impl Enemy {
             speed,
             damage,
             target_module: None,
+            attached_to: None,
+            ability_timer: 0.0,
         }
     }
 }

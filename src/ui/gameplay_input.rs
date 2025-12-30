@@ -184,9 +184,10 @@ impl InputManager {
         // Attempt repair
         if !state.attempt_interior_repair(room_idx, point_idx) { return };
         
-        // Advance tutorial if this is the target room
+        // Advance tutorial only if this is the target room AND room is now fully repaired
+        // This prevents advancing by just doing one repair - must complete the objective
         let Some(target) = state.tutorial_state.target_room(&state.tutorial_config) else { return };
-        if room_idx == target {
+        if room_idx == target && state.interior.rooms[room_idx].is_fully_repaired() {
             state.tutorial_state.advance(&state.tutorial_config);
         }
     }
@@ -198,10 +199,9 @@ impl InputManager {
                     events.push_ui(UIEvent::Repair(x, y));
                 }
                 ModuleState::Active | ModuleState::Offline => {
-                    if module.module_type == ModuleType::Engine 
-                       && module.state == ModuleState::Active {
-                        events.push_ui(UIEvent::ActivateEngine);
-                    } else {
+                    // Engine activation is now automatic via interior repairs
+                    // All other modules can be toggled
+                    if module.module_type != ModuleType::Engine {
                         events.push_ui(UIEvent::Toggle(x, y));
                     }
                 }

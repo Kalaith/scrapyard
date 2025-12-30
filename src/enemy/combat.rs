@@ -144,7 +144,7 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
                         
                         let hit_radius = match enemy.enemy_type {
                             EnemyType::Boss => ENEMY_HIT_RADIUS_BOSS,
-                            EnemyType::Nanoguard => ENEMY_HIT_RADIUS_NANOGUARD,
+                            EnemyType::Nanoguard | EnemyType::SiegeConstruct => ENEMY_HIT_RADIUS_NANOGUARD,
                             _ => ENEMY_HIT_RADIUS_NANODRONE,
                         };
                         
@@ -158,6 +158,7 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
                                     EnemyType::Nanodrone => 3,
                                     EnemyType::Nanoguard => 10,
                                     EnemyType::Leech => 5,
+                                    EnemyType::SiegeConstruct => 25,
                                     EnemyType::Boss => 100,
                                 };
                                 state.resources.add_scrap(scrap);

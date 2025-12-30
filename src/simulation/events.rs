@@ -13,8 +13,6 @@ pub enum UIEvent {
     Pause,
     /// Resume the game
     Resume,
-    /// Activate the engine (triggers escape sequence)
-    ActivateEngine,
     /// Return to main menu
     ReturnToMenu,
     /// Start a new game

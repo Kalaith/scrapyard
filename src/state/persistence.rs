@@ -15,6 +15,8 @@ pub struct SavedEnemy {
     pub speed: f32,
     pub damage: f32,
     pub target: Option<(usize, usize)>,
+    pub attached_to: Option<(usize, usize)>, // For Leech attachment
+    pub ability_timer: f32,                   // For Boss abilities
 }
 
 #[derive(Serialize, Deserialize)]
