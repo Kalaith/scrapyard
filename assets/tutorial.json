@@ -1,0 +1,40 @@
+{
+    "steps": [
+        {
+            "id": "welcome",
+            "message": "Welcome aboard! Your ship is damaged.\nUse WASD to move. Press E near orange repair points.",
+            "target_room": null,
+            "show_highlight": false
+        },
+        {
+            "id": "repair_reactor",
+            "message": "First, repair the REACTOR to restore power.\nFollow the highlighted path to the central room.",
+            "target_room": 12,
+            "show_highlight": true
+        },
+        {
+            "id": "repair_shields",
+            "message": "Good! Now repair the SHIELDS for defense.\nHead to the shield room above.",
+            "target_room": 5,
+            "show_highlight": true
+        },
+        {
+            "id": "repair_weapon",
+            "message": "Shields online! Repair a WEAPON to fight back.\nGo to the left weapon bay.",
+            "target_room": 1,
+            "show_highlight": true
+        },
+        {
+            "id": "repair_engine",
+            "message": "Weapons ready! Finally, repair the ENGINE.\nHead to the engine room below.",
+            "target_room": 20,
+            "show_highlight": true
+        },
+        {
+            "id": "complete",
+            "message": "All systems operational! Enemies will now attack.\nPress Tab to view exterior. Good luck!",
+            "target_room": null,
+            "show_highlight": false
+        }
+    ]
+}

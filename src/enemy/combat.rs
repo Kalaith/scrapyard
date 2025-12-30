@@ -1,10 +1,11 @@
 use macroquad::prelude::*;
 use crate::state::GameState;
-use crate::entities::Projectile;
-use crate::ship::{ModuleType, ModuleState};
-use crate::constants::*;
-use crate::events::{EventBus, GameEvent};
-use crate::layout::Layout;
+use crate::enemy::entities::{Enemy, Projectile, EnemyType};
+use crate::ship::ship::ModuleType;
+use crate::simulation::constants::*;
+use crate::simulation::events::{EventBus, GameEvent};
+use crate::ship::layout::Layout;
+use crate::ship::interior::{RoomType, Room};
 
 pub fn update_combat(state: &mut GameState, dt: f32, events: &mut EventBus) {
     // 1. Modules Fire (Towers)
@@ -23,7 +24,7 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
     // Check each weapon room for repair percentage
     for room in &state.interior.rooms {
         // Only process weapon rooms
-        if room.room_type != crate::interior::RoomType::Module(ModuleType::Weapon) {
+        if room.room_type != RoomType::Module(ModuleType::Weapon) {
             continue;
         }
         
@@ -72,7 +73,7 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
     state.projectiles.append(&mut new_projectiles);
 }
 
-fn find_nearest_enemy(enemies: &[crate::entities::Enemy], pos: Vec2, range: f32) -> Option<Vec2> {
+fn find_nearest_enemy(enemies: &[Enemy], pos: Vec2, range: f32) -> Option<Vec2> {
     let mut nearest = None;
     let mut min_dist = range;
     
@@ -142,9 +143,9 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
                         if enemy.health <= 0.0 { continue; }
                         
                         let hit_radius = match enemy.enemy_type {
-                            crate::entities::EnemyType::Boss => 40.0,
-                            crate::entities::EnemyType::Nanoguard => 15.0,
-                            _ => 10.0,
+                            EnemyType::Boss => ENEMY_HIT_RADIUS_BOSS,
+                            EnemyType::Nanoguard => ENEMY_HIT_RADIUS_NANOGUARD,
+                            _ => ENEMY_HIT_RADIUS_NANODRONE,
                         };
                         
                         if proj.position.distance(enemy.position) < hit_radius {
@@ -154,10 +155,10 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
                             if enemy.health <= 0.0 {
                                 // Enemy killed
                                 let scrap = match enemy.enemy_type {
-                                    crate::entities::EnemyType::Nanodrone => 3,
-                                    crate::entities::EnemyType::Nanoguard => 10,
-                                    crate::entities::EnemyType::Leech => 5,
-                                    crate::entities::EnemyType::Boss => 100,
+                                    EnemyType::Nanodrone => 3,
+                                    EnemyType::Nanoguard => 10,
+                                    EnemyType::Leech => 5,
+                                    EnemyType::Boss => 100,
                                 };
                                 state.resources.add_scrap(scrap);
                                 state.resources.credits += scrap / 2;
@@ -184,12 +185,12 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
 }
 
 fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
-    let attack_range = 30.0;
+    let attack_range = ENEMY_ATTACK_RANGE;
     
     // Calculate shield reduction from all shield rooms
-    let mut shield_reduction = 0.0;
+    let mut shield_reduction: f32 = 0.0;
     for room in &state.interior.rooms {
-        if room.room_type == crate::interior::RoomType::Module(ModuleType::Defense) {
+        if room.room_type == RoomType::Module(ModuleType::Defense) {
             if !room.repair_points.is_empty() {
                 let repair_pct = room.repaired_count() as f32 / room.repair_points.len() as f32;
                 shield_reduction += repair_pct * 0.5; // Each shield room can block up to 50%

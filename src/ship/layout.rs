@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use crate::constants::{GRID_WIDTH, CELL_SIZE, GRID_HEIGHT};
+use crate::simulation::constants::{GRID_WIDTH, CELL_SIZE, GRID_HEIGHT};
 
 pub struct Layout;
 

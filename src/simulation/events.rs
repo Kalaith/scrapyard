@@ -19,6 +19,16 @@ pub enum UIEvent {
     ReturnToMenu,
     /// Start a new game
     StartGame,
+    /// Purchase an upgrade by ID
+    PurchaseUpgrade(String),
+    /// Proceed to next round
+    NextRound,
+    /// Save game to slot
+    SaveGame(usize),
+    /// Load game from slot
+    LoadGame(usize),
+    /// Exit the game
+    ExitGame,
 }
 
 /// Game events for internal state changes (can be used for audio, particles, etc.)

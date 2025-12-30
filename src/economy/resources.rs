@@ -31,4 +31,17 @@ impl Resources {
     pub fn add_scrap(&mut self, amount: i32) {
         self.scrap = (self.scrap + amount).min(self.max_scrap);
     }
+
+    pub fn add_credits(&mut self, amount: i32) {
+        self.credits += amount;
+    }
+
+    pub fn deduct_credits(&mut self, cost: i32) -> bool {
+        if self.credits >= cost {
+            self.credits -= cost;
+            true
+        } else {
+            false
+        }
+    }
 }

@@ -1,7 +1,8 @@
 // player.rs - Player character for interior view
 
 use macroquad::prelude::*;
-use crate::constants::*;
+use crate::simulation::constants::*;
+use crate::ship::interior::ShipInterior;
 
 /// Interior scale: each grid cell becomes a large room
 /// Room size in pixels = CELL_SIZE * ROOM_SCALE
@@ -37,7 +38,7 @@ impl Player {
     }
 
     /// Update player movement based on input
-    pub fn update(&mut self, dt: f32, interior: &crate::interior::ShipInterior) {
+    pub fn update(&mut self, dt: f32, interior: &ShipInterior) {
         let mut move_dir = Vec2::ZERO;
         
         // WASD and Arrow key movement
@@ -89,7 +90,7 @@ impl Player {
     }
 
     /// Check which module room player is in for interaction
-    pub fn update_nearby_module(&mut self, interior: &crate::interior::ShipInterior) {
+    pub fn update_nearby_module(&mut self, interior: &ShipInterior) {
         // Check if player is in a module room
         if let Some(room) = interior.module_room_at(self.position) {
             self.nearby_module = room.module_index;

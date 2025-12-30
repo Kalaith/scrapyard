@@ -1,8 +1,8 @@
 // interior.rs - FTL-style ship interior with JSON-loaded room layout
 
 use macroquad::prelude::*;
-use serde::{Deserialize, Serialize};
-use crate::ship::ModuleType;
+use serde::Deserialize;
+use crate::ship::ship::ModuleType;
 
 /// Room size constants (for default sizing)
 pub const ROOM_SIZE: f32 = 64.0;
@@ -207,9 +207,8 @@ pub struct ShipInterior {
 
 impl ShipInterior {
     /// Load ship layout from JSON string (embedded at compile time)
-    pub fn from_json(json_str: &str) -> Self {
-        let data: ShipData = serde_json::from_str(json_str)
-            .expect("Failed to parse ship JSON");
+    pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
+        let data: ShipData = serde_json::from_str(json_str)?;
         
         let rooms: Vec<Room> = data.rooms.iter().map(|rd| {
             let room_type = RoomType::from_str(&rd.room_type);
@@ -225,17 +224,24 @@ impl ShipInterior {
             room
         }).collect();
 
-        Self {
+        Ok(Self {
             rooms,
             width: data.width,
             height: data.height,
-        }
+        })
     }
 
     /// Create the starter ship layout from JSON
     pub fn starter_ship() -> Self {
-        const SHIP_JSON: &str = include_str!("../assets/ships/starter_ship.json");
-        Self::from_json(SHIP_JSON)
+        const SHIP_JSON: &str = include_str!("../../assets/ships/starter_ship.json");
+        Self::from_json(SHIP_JSON).unwrap_or_else(|e| {
+            eprintln!("Warning: Failed to load starter ship: {}. Using fallback.", e);
+            Self {
+                rooms: Vec::new(),
+                width: 1000.0,
+                height: 600.0,
+            }
+        })
     }
 
     pub fn player_start_position(&self) -> Vec2 {

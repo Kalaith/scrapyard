@@ -1,0 +1,285 @@
+use macroquad::prelude::*;
+use crate::state::{GameState, ViewMode};
+use crate::simulation::constants::*;
+use crate::ship::ship::{ModuleType, ModuleState, Module};
+use crate::ship::interior::REPAIR_POINT_SIZE;
+use crate::ui::renderer::Renderer;
+
+impl Renderer {
+    pub fn draw_gameplay(&self, state: &GameState) {
+        match state.view_mode {
+            ViewMode::Exterior => {
+                self.draw_ship_hull(state);
+                self.draw_ship_grid(state);
+                self.draw_enemies(state);
+                self.draw_projectiles(state);
+                self.draw_particles(state);
+            }
+            ViewMode::Interior => {
+                self.draw_interior(state);
+            }
+        }
+        
+        // View mode indicator
+        let mode_text = match state.view_mode {
+            ViewMode::Exterior => "EXTERIOR [Tab]",
+            ViewMode::Interior => "INTERIOR [Tab]",
+        };
+        draw_text(mode_text, screen_width() - 150.0, screen_height() - 20.0, 18.0, GRAY);
+        
+        // Tutorial overlay
+        if !state.tutorial_state.is_complete() {
+            self.draw_tutorial(state);
+        }
+    }
+
+    pub fn draw_interior(&self, state: &GameState) {
+        let interior = &state.interior;
+        
+        // Camera offset to center on player
+        let cam_x = if interior.width < screen_width() {
+            (screen_width() - interior.width) / 2.0
+        } else {
+            (screen_width() / 2.0 - state.player.position.x)
+                .clamp(screen_width() - interior.width, 0.0)
+        };
+        let cam_y = if interior.height < screen_height() {
+            (screen_height() - interior.height) / 2.0
+        } else {
+            (screen_height() / 2.0 - state.player.position.y)
+                .clamp(screen_height() - interior.height, 0.0)
+        };
+        
+        // Background (void)
+        draw_rectangle(0.0, 0.0, screen_width(), screen_height(), color_u8!(10, 10, 15, 255));
+        
+        // Draw rooms
+        for room in &interior.rooms {
+            let rx = cam_x + room.x;
+            let ry = cam_y + room.y;
+            
+            draw_rectangle(rx, ry, room.width, room.height, room.color());
+            
+            let is_target = state.tutorial_state.should_highlight(&state.tutorial_config, room.id);
+            if is_target && !room.is_fully_repaired() {
+                let pulse = ((state.frame_count as f32 * 0.1).sin() * 0.5 + 0.5) * 155.0 + 100.0;
+                draw_rectangle_lines(rx - 2.0, ry - 2.0, room.width + 4.0, room.height + 4.0, 4.0, 
+                    Color::new(1.0, 1.0, 0.0, pulse / 255.0));
+            } else {
+                draw_rectangle_lines(rx, ry, room.width, room.height, 2.0, color_u8!(70, 70, 80, 255));
+            }
+            
+            for point in &room.repair_points {
+                let px = rx + point.x;
+                let py = ry + point.y;
+                let half = REPAIR_POINT_SIZE / 2.0;
+                
+                if point.repaired {
+                    draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(30, 100, 30, 255));
+                    draw_rectangle_lines(px - half, py - half, half * 2.0, half * 2.0, 2.0, GREEN);
+                } else {
+                    draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(100, 40, 30, 255));
+                    draw_rectangle_lines(px - half, py - half, half * 2.0, half * 2.0, 2.0, ORANGE);
+                }
+            }
+            
+            let name = room.name();
+            if !name.is_empty() {
+                let text_size = 18.0;
+                let text_w = measure_text(name, None, text_size as u16, 1.0).width;
+                draw_text(name, rx + (room.width - text_w) / 2.0, ry + 24.0, text_size, WHITE);
+                
+                if !room.repair_points.is_empty() {
+                    let progress = format!("{}/{}", room.repaired_count(), room.repair_points.len());
+                    let prog_w = measure_text(&progress, None, 14, 1.0).width;
+                    draw_text(&progress, rx + (room.width - prog_w) / 2.0, ry + 42.0, 14.0, 
+                        if room.is_fully_repaired() { GREEN } else { ORANGE });
+                }
+            }
+        }
+        
+        // Draw player
+        let player_screen_x = cam_x + state.player.position.x;
+        let player_screen_y = cam_y + state.player.position.y;
+        
+        draw_circle(player_screen_x, player_screen_y, state.player.size, color_u8!(100, 200, 255, 255));
+        draw_circle_lines(player_screen_x, player_screen_y, state.player.size, 2.0, WHITE);
+        
+        let facing_end = vec2(player_screen_x, player_screen_y) + state.player.facing * state.player.size;
+        draw_line(player_screen_x, player_screen_y, facing_end.x, facing_end.y, 2.0, WHITE);
+        
+        if let Some(room) = interior.room_at(state.player.position) {
+            if !room.repair_points.is_empty() {
+                for pile in &state.scrap_piles {
+                    if !pile.active { continue; }
+                    let screen_pos_x = cam_x + pile.position.x;
+                    let screen_pos_y = cam_y + pile.position.y;
+                    
+                    draw_circle(screen_pos_x, screen_pos_y, 8.0, BROWN);
+                    draw_circle(screen_pos_x, screen_pos_y, 6.0, DARKBROWN);
+                    
+                    if pile.position.distance(state.player.position) < INTERACTION_RANGE {
+                        draw_circle_lines(screen_pos_x, screen_pos_y, 12.0, 2.0, YELLOW);
+                        if state.gathering_target.is_none() {
+                             draw_text("[Hold E] Scavenge", screen_pos_x - 40.0, screen_pos_y - 15.0, 16.0, WHITE);
+                        }
+                    }
+                }
+                
+                if let Some(_) = state.gathering_target {
+                    if state.gathering_timer > 0.0 {
+                        let progress = (state.gathering_timer / GATHERING_TIME_SECONDS).clamp(0.0, 1.0);
+                        let bar_w = 40.0;
+                        let bar_h = 6.0;
+                        let px = player_screen_x - bar_w / 2.0;
+                        let py = player_screen_y - 30.0;
+                        
+                        draw_rectangle(px, py, bar_w, bar_h, BLACK);
+                        draw_rectangle(px, py, bar_w * progress, bar_h, GREEN);
+                    }
+                }
+
+                if let Some(point_idx) = room.repair_point_at(state.player.position) {
+                    if !room.repair_points[point_idx].repaired {
+                        if let Some(room_idx) = interior.rooms.iter().position(|r| r.id == room.id) {
+                            if let Some((scrap_cost, power_cost)) = state.get_repair_cost(room_idx, point_idx) {
+                                let is_reactor = power_cost == 0;
+                                let can_afford_scrap = state.resources.scrap >= scrap_cost;
+                                let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
+                                
+                                let cost_text = if is_reactor {
+                                    format!("{scrap_cost} Scrap")
+                                } else {
+                                    format!("{scrap_cost} Scrap + {power_cost} Power")
+                                };
+                                
+                                let label = if can_afford_scrap && can_afford_power {
+                                    format!("[E] Repair ({})", cost_text)
+                                } else if !can_afford_scrap {
+                                    format!("Need {scrap_cost} Scrap")
+                                } else {
+                                    format!("Need {power_cost} Power (Repair Reactor)")
+                                };
+                                
+                                let color = if can_afford_scrap && can_afford_power { YELLOW } else { RED };
+                                draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn draw_ship_hull(&self, _state: &GameState) {
+        let total_width = GRID_WIDTH as f32 * CELL_SIZE;
+        let total_height = GRID_HEIGHT as f32 * CELL_SIZE;
+        let start_x = (screen_width() - total_width) / 2.0;
+        let start_y = (screen_height() - total_height) / 2.0;
+
+        draw_rectangle(start_x - 20.0, start_y - 20.0, total_width + 40.0, total_height + 40.0, color_u8!(50, 50, 60, 255));
+        draw_rectangle(start_x - 10.0, start_y - 10.0, total_width + 20.0, total_height + 20.0, color_u8!(30, 30, 40, 255));
+
+        let accent = color_u8!(70, 70, 80, 255);
+        draw_line(start_x - 20.0, start_y - 20.0, start_x + total_width + 20.0, start_y - 20.0, 2.0, accent);
+        draw_line(start_x - 20.0, start_y + total_height + 20.0, start_x + total_width + 20.0, start_y + total_height + 20.0, 2.0, accent);
+    }
+
+    pub fn draw_ship_grid(&self, state: &GameState) {
+        let total_width = GRID_WIDTH as f32 * CELL_SIZE;
+        let total_height = GRID_HEIGHT as f32 * CELL_SIZE;
+        let start_x = (screen_width() - total_width) / 2.0;
+        let start_y = (screen_height() - total_height) / 2.0;
+
+        for x in 0..GRID_WIDTH {
+            for y in 0..GRID_HEIGHT {
+                let px = start_x + x as f32 * CELL_SIZE;
+                let py = start_y + y as f32 * CELL_SIZE;
+                let module = &state.ship.grid[x][y];
+
+                self.draw_module_base(px, py, module.is_some());
+                draw_rectangle_lines(px, py, CELL_SIZE, CELL_SIZE, 1.0, COLOR_GRID_LINE);
+
+                if let Some(mod_data) = module {
+                    self.draw_module(px, py, mod_data);
+                }
+            }
+        }
+    }
+
+    pub fn draw_module_base(&self, x: f32, y: f32, has_module: bool) {
+        let color = if has_module { color_u8!(25, 25, 30, 255) } else { color_u8!(40, 40, 50, 255) };
+        draw_rectangle(x, y, CELL_SIZE, CELL_SIZE, color);
+    }
+
+    pub fn draw_module(&self, x: f32, y: f32, mod_data: &Module) {
+        let color = match mod_data.module_type {
+            ModuleType::Core => RED,
+            ModuleType::Weapon => ORANGE,
+            ModuleType::Defense => BLUE,
+            ModuleType::Utility => GREEN,
+            ModuleType::Engine => PURPLE,
+            ModuleType::Empty => COLOR_MODULE_EMPTY,
+        };
+
+        let padding = 2.0;
+        draw_rectangle(x + padding, y + padding, CELL_SIZE - padding * 2.0, CELL_SIZE - padding * 2.0, color);
+
+        match mod_data.state {
+            ModuleState::Destroyed => {
+                draw_line(x, y, x + CELL_SIZE, y + CELL_SIZE, 2.0, BLACK);
+                draw_line(x + CELL_SIZE, y, x, y + CELL_SIZE, 2.0, BLACK);
+            }
+            ModuleState::Offline => {
+                draw_rectangle(x + padding, y + padding, CELL_SIZE - padding * 2.0, CELL_SIZE - padding * 2.0, color_u8!(0, 0, 0, 120));
+            }
+            ModuleState::Active => {
+                draw_rectangle_lines(x + padding, y + padding, CELL_SIZE - padding * 2.0, CELL_SIZE - padding * 2.0, 2.0, WHITE);
+            }
+        }
+    }
+
+    pub fn draw_enemies(&self, state: &GameState) {
+        for enemy in &state.enemies {
+            let color = match enemy.enemy_type {
+                crate::enemy::entities::EnemyType::Nanodrone => GREEN,
+                crate::enemy::entities::EnemyType::Nanoguard => YELLOW,
+                crate::enemy::entities::EnemyType::Leech => PURPLE,
+                crate::enemy::entities::EnemyType::Boss => RED,
+            };
+
+            draw_circle(enemy.position.x, enemy.position.y, 8.0, color);
+
+            if enemy.health < enemy.max_health {
+                let bar_width = 20.0;
+                let bar_height = 4.0;
+                let pct = enemy.health / enemy.max_health;
+                draw_rectangle(enemy.position.x - bar_width / 2.0, enemy.position.y - 15.0, bar_width, bar_height, RED);
+                draw_rectangle(enemy.position.x - bar_width / 2.0, enemy.position.y - 15.0, bar_width * pct, bar_height, GREEN);
+            }
+        }
+    }
+
+    pub fn draw_projectiles(&self, state: &GameState) {
+        for proj in &state.projectiles {
+            draw_line(
+                proj.position.x,
+                proj.position.y,
+                proj.position.x - proj.velocity.normalize().x * 10.0,
+                proj.position.y - proj.velocity.normalize().y * 10.0,
+                2.0,
+                YELLOW,
+            );
+        }
+    }
+
+    pub fn draw_particles(&self, state: &GameState) {
+        for particle in &state.particles {
+            if particle.active {
+                let alpha = (particle.lifetime / particle.max_lifetime).clamp(0.0, 1.0);
+                let color = Color::new(particle.color.r, particle.color.g, particle.color.b, particle.color.a * alpha);
+                draw_circle(particle.position.x, particle.position.y, 3.0, color);
+            }
+        }
+    }
+}

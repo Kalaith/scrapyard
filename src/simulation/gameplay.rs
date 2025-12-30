@@ -1,4 +1,4 @@
-use crate::ship::ModuleType;
+use crate::ship::ship::ModuleType;
 use std::collections::HashMap;
 use serde::Deserialize;
 
@@ -50,9 +50,12 @@ impl ModuleRegistry {
         let mut stats = HashMap::new();
 
         // Load weapon config from embedded JSON
-        let weapon_json = include_str!("../assets/stats/weapons.json");
+        let weapon_json = include_str!("../../assets/stats/weapons.json");
         let weapon_configs: HashMap<String, WeaponConfig> = serde_json::from_str(weapon_json)
-            .expect("Failed to parse weapons.json");
+            .unwrap_or_else(|e| {
+                eprintln!("Warning: Failed to parse weapons.json: {}. Using defaults.", e);
+                HashMap::new()
+            });
 
         let default_weapon = WeaponConfig { damage: 10.0, range: 200.0, fire_rate: 1.0 };
         let pulse_turret = weapon_configs.get("Pulse Turret").unwrap_or(&default_weapon);

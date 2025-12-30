@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 use serde::{Serialize, Deserialize};
+use crate::simulation::constants::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EnemyType {
@@ -24,10 +25,10 @@ pub struct Enemy {
 impl Enemy {
     pub fn new(id: u64, enemy_type: EnemyType, position: Vec2) -> Self {
         let (hp, speed, damage) = match enemy_type {
-            EnemyType::Nanodrone => (10.0, 100.0, 5.0),
-            EnemyType::Nanoguard => (50.0, 40.0, 15.0),
-            EnemyType::Leech => (30.0, 60.0, 2.0), // Low damage but special effect later
-            EnemyType::Boss => (1000.0, 20.0, 50.0),
+            EnemyType::Nanodrone => (ENEMY_DRONE_HP, ENEMY_DRONE_SPEED, ENEMY_DRONE_DAMAGE),
+            EnemyType::Nanoguard => (ENEMY_GUARD_HP, ENEMY_GUARD_SPEED, ENEMY_GUARD_DAMAGE),
+            EnemyType::Leech => (ENEMY_LEECH_HP, ENEMY_LEECH_SPEED, ENEMY_LEECH_DAMAGE),
+            EnemyType::Boss => (ENEMY_BOSS_HP, ENEMY_BOSS_SPEED, ENEMY_BOSS_DAMAGE),
         };
 
         Self {
