@@ -10,25 +10,29 @@ impl Renderer {
         };
         
         let box_height = 80.0;
-        draw_rectangle(0.0, 0.0, screen_width(), box_height, color_u8!(0, 0, 0, 200));
+        let box_y = screen_height() - box_height; // Position at bottom
+        draw_rectangle(0.0, box_y, screen_width(), box_height, color_u8!(0, 0, 0, 200));
         
         let lines: Vec<&str> = step.message.split('\n').collect();
         
         for (i, line) in lines.iter().enumerate() {
             let text_w = measure_text(line, None, 20, 1.0).width;
-            draw_text(line, (screen_width() - text_w) / 2.0, 25.0 + i as f32 * 24.0, 20.0, WHITE);
+            draw_text(line, (screen_width() - text_w) / 2.0, box_y + 25.0 + i as f32 * 24.0, 20.0, WHITE);
         }
         
         // Step counter (exclude welcome and complete from count)
         let step_num = state.tutorial_state.current_index;
         let total_steps = state.tutorial_config.steps.len().saturating_sub(2); // Exclude welcome/complete
-        if step_num > 0 && step_num <= total_steps {
+        if step.id == "complete" {
+            // Show "Press any key to dismiss" for the final step
+            draw_text("[Press E to dismiss]", screen_width() - 180.0, box_y + box_height - 10.0, 14.0, YELLOW);
+        } else if step_num > 0 && step_num <= total_steps {
             let step_text = format!("Step {}/{}", step_num, total_steps);
-            draw_text(&step_text, 20.0, box_height - 10.0, 16.0, GRAY);
+            draw_text(&step_text, 20.0, box_y + box_height - 10.0, 16.0, GRAY);
         }
         
         if state.tutorial_state.is_welcome() {
-            draw_text("[Press E to continue]", screen_width() - 180.0, box_height - 10.0, 14.0, YELLOW);
+            draw_text("[Press E to continue]", screen_width() - 180.0, box_y + box_height - 10.0, 14.0, YELLOW);
         }
     }
 
@@ -94,6 +98,7 @@ impl Renderer {
         (continue_bounds, new_game_bounds)
     }
 
+    #[allow(dead_code)]
     pub fn get_start_button_bounds(&self) -> (f32, f32, f32, f32) {
         let (_, new_game) = self.get_menu_button_bounds();
         new_game
@@ -112,10 +117,12 @@ impl Renderer {
         draw_text(text, screen_width() / 2.0 - size.width / 2.0, screen_height() / 3.0, 64.0, RED);
 
         let stats_y = screen_height() / 2.0;
+        let minutes = (state.time_survived / 60.0).floor() as i32;
+        let seconds = (state.time_survived % 60.0).floor() as i32;
         let stats = [
             format!("Scrap Collected: {}", state.resources.scrap + 100),
             format!("Credits Earned: {}", state.resources.credits),
-            format!("Frames Survived: {}", state.frame_count),
+            format!("Time Survived: {:02}:{:02}", minutes, seconds),
         ];
         
         for (i, stat) in stats.iter().enumerate() {

@@ -170,6 +170,15 @@ impl InputManager {
         // Advance from welcome step on first E press
         if state.tutorial_state.is_welcome() {
             state.tutorial_state.advance(&state.tutorial_config);
+            return;
+        }
+        
+        // Allow dismissing the final "complete" step with E
+        if let Some(step) = state.tutorial_state.current_step(&state.tutorial_config) {
+            if step.id == "complete" {
+                state.tutorial_state.advance(&state.tutorial_config);
+                return;
+            }
         }
 
         // Find room player is in
@@ -184,14 +193,16 @@ impl InputManager {
         // Attempt repair
         if !state.attempt_interior_repair(room_idx, point_idx) { return };
         
-        // Advance tutorial only if this is the target room AND room is now fully repaired
-        // This prevents advancing by just doing one repair - must complete the objective
+        // Advance tutorial when player repairs ANY point in the target room
+        // This gives immediate positive feedback instead of requiring full room completion
         let Some(target) = state.tutorial_state.target_room(&state.tutorial_config) else { return };
-        if room_idx == target && state.interior.rooms[room_idx].is_fully_repaired() {
+        let room = &state.interior.rooms[room_idx];
+        if room.id == target {
             state.tutorial_state.advance(&state.tutorial_config);
         }
     }
 
+    #[allow(dead_code)]
     pub fn handle_grid_click(&self, x: usize, y: usize, state: &GameState, events: &mut EventBus) {
         if let Some(module) = &state.ship.grid[x][y] {
             match module.state {

@@ -4,6 +4,7 @@ use serde::Deserialize;
 
 /// Configuration for a single tutorial step (loaded from JSON)
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct TutorialStepConfig {
     pub id: String,
     pub message: String,
@@ -88,6 +89,7 @@ impl TutorialState {
 
 // Legacy enum for backwards compatibility during transition
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum TutorialStep {
     Welcome,
     RepairReactor,
@@ -97,6 +99,7 @@ pub enum TutorialStep {
     Complete,
 }
 
+#[allow(dead_code)]
 impl TutorialStep {
     /// Convert from index-based state to enum (for legacy code compatibility)
     pub fn from_state(state: &TutorialState) -> Self {

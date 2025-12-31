@@ -39,6 +39,7 @@ pub enum ViewMode {
     Interior,
 }
 
+#[allow(dead_code)]
 pub struct GameState {
     pub ship: Ship,
     pub interior: ShipInterior,
@@ -67,6 +68,7 @@ pub struct GameState {
     pub projectiles: Vec<Projectile>,
     pub particles: Vec<Particle>,
     pub frame_count: u64,
+    pub time_survived: f32,
     pub wave_state: WaveState,
     pub repair_timer: f32,
     pub pause_menu_selection: usize,
@@ -89,8 +91,8 @@ impl GameState {
             total_power: 0,
             used_power: 0,
             required_power: 100,
-            ship_integrity: 1000.0,
-            ship_max_integrity: 1000.0,
+            ship_integrity: SHIP_BASE_INTEGRITY,
+            ship_max_integrity: SHIP_BASE_INTEGRITY,
             tutorial_config: TutorialConfig::load(),
             tutorial_state: TutorialState::new(),
             tutorial_timer: 0.0,
@@ -110,6 +112,7 @@ impl GameState {
                     Vec::new()
                 }),
             frame_count: 0,
+            time_survived: 0.0,
             wave_state: WaveState::new(),
             repair_timer: 0.0,
             pause_menu_selection: 0,
@@ -129,6 +132,7 @@ impl GameState {
         self.projectiles.clear();
         self.particles.clear();
         self.frame_count = 0;
+        self.time_survived = 0.0;
         self.paused = false;
         self.engine_state = EngineState::Idle;
         self.escape_timer = 60.0;
@@ -136,8 +140,8 @@ impl GameState {
         self.player = Player::new_at(self.interior.player_start_position());
         self.total_power = 0;
         self.used_power = 0;
-        self.ship_integrity = 1000.0;
-        self.ship_max_integrity = 1000.0;
+        self.ship_integrity = SHIP_BASE_INTEGRITY;
+        self.ship_max_integrity = SHIP_BASE_INTEGRITY;
         self.tutorial_state = TutorialState::new();
         self.tutorial_timer = 0.0;
         self.phase = GamePhase::Playing;
@@ -190,6 +194,7 @@ impl GameState {
                     crate::enemy::ai::update_enemies(self, dt);
                     crate::enemy::combat::update_combat(self, dt, events);
                     self.frame_count += 1;
+                    self.time_survived += dt;
 
                     let robotics_level = self.upgrades.get_level("auto_repairs");
                     self.repair_timer += dt;
@@ -294,10 +299,8 @@ impl GameState {
     }
 
     pub fn attempt_upgrade(&mut self, x: usize, y: usize, events: &mut EventBus) -> bool {
-        const MAX_LEVEL: u8 = 5;
-        const UPGRADE_MULTIPLIER: f32 = 1.5;
         let upgrade_cost = if let Some(module) = &self.ship.grid[x][y] {
-            if module.state == ModuleState::Destroyed || module.level >= MAX_LEVEL { return false; }
+            if module.state == ModuleState::Destroyed || module.level >= MODULE_MAX_LEVEL { return false; }
             let base_cost = self.module_registry.get(module.module_type).base_cost;
             (base_cost as f32 * (module.level as f32 * 0.5 + 1.0)) as i32
         } else { return false; };
@@ -306,7 +309,7 @@ impl GameState {
             self.resources.deduct(upgrade_cost);
             if let Some(module) = &mut self.ship.grid[x][y] {
                 module.level += 1;
-                module.max_health *= UPGRADE_MULTIPLIER;
+                module.max_health *= MODULE_UPGRADE_HP_MULTIPLIER;
                 module.health = module.max_health;
                 events.push_game(GameEvent::ModuleUpgraded { x, y, new_level: module.level });
                 return true;
@@ -331,15 +334,15 @@ impl GameState {
     pub fn get_repair_cost(&self, room_idx: usize, _point_idx: usize) -> Option<(i32, i32)> {
         if room_idx >= self.interior.rooms.len() { return None; }
         let room = &self.interior.rooms[room_idx];
-        let scrap_cost = 10;
+        let scrap_cost = REPAIR_SCRAP_COST;
         let power_cost = match room.room_type {
             RoomType::Module(ModuleType::Core) => 0,
-            RoomType::Module(ModuleType::Weapon) => 2,
-            RoomType::Module(ModuleType::Defense) => 2,
-            RoomType::Module(ModuleType::Utility) => 1,
-            RoomType::Module(ModuleType::Engine) => 3,
-            RoomType::Cockpit => 2,
-            RoomType::Medbay => 1,
+            RoomType::Module(ModuleType::Weapon) => POWER_COST_WEAPON,
+            RoomType::Module(ModuleType::Defense) => POWER_COST_DEFENSE,
+            RoomType::Module(ModuleType::Utility) => POWER_COST_UTILITY,
+            RoomType::Module(ModuleType::Engine) => POWER_COST_ENGINE,
+            RoomType::Cockpit => POWER_COST_COCKPIT,
+            RoomType::Medbay => POWER_COST_MEDBAY,
             _ => 0,
         };
         Some((scrap_cost, power_cost))
@@ -380,8 +383,8 @@ impl GameState {
                 if self.resources.deduct_credits(cost) {
                     self.upgrades.levels.insert(upgrade_id.to_string(), current_level + 1);
                     if upgrade_id == "hull_reinforcement" {
-                        self.ship_max_integrity += 200.0;
-                        self.ship_integrity += 200.0;
+                        self.ship_max_integrity += HULL_UPGRADE_BONUS;
+                        self.ship_integrity += HULL_UPGRADE_BONUS;
                     }
                     return true;
                 }
@@ -430,6 +433,7 @@ impl GameState {
             }).collect(),
             upgrades: self.upgrades.clone(),
             frame_count: self.frame_count,
+            time_survived: self.time_survived,
             // Interior repair states
             room_repair_states: self.interior.rooms.iter()
                 .map(|room| room.repair_points.iter().map(|rp| rp.repaired).collect())
@@ -457,6 +461,7 @@ impl GameState {
         state.escape_timer = save_data.escape_timer;
         state.upgrades = save_data.upgrades;
         state.frame_count = save_data.frame_count;
+        state.time_survived = save_data.time_survived;
         state.enemies = save_data.enemies.into_iter().map(|s| Enemy {
             id: s.id,
             enemy_type: s.enemy_type,

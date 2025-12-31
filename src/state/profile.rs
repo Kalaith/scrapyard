@@ -5,10 +5,12 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
+#[allow(dead_code)]
 const PROFILE_PATH: &str = "player_profile.json";
 
 /// Persistent player profile that survives across game runs
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct PlayerProfile {
     /// Total credits earned across all runs
     pub lifetime_credits: i32,
@@ -34,6 +36,7 @@ impl Default for PlayerProfile {
     }
 }
 
+#[allow(dead_code)]
 impl PlayerProfile {
     /// Load profile from disk, or create default if not found
     pub fn load() -> Self {

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 /// Sprite struct for robust scaling and rotation of textures.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Sprite {
     pub texture: Option<Texture2D>,
     pub position: Vec2,
@@ -12,6 +13,7 @@ pub struct Sprite {
     pub color: Color,
 }
 
+#[allow(dead_code)]
 impl Sprite {
     pub fn new() -> Self {
         Self {
@@ -88,11 +90,13 @@ impl Sprite {
     }
 }
 
+#[allow(dead_code)]
 pub struct AssetManager {
     textures: HashMap<String, Texture2D>,
     // fonts: HashMap<String, Font>, // TODO: Add fonts later
 }
 
+#[allow(dead_code)]
 impl AssetManager {
     pub fn new() -> Self {
         Self {

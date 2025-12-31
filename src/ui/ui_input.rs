@@ -2,6 +2,7 @@ use macroquad::prelude::*;
 use crate::state::GameState;
 use crate::simulation::events::{EventBus, UIEvent};
 use crate::ui::input_manager::{InputManager, InputState};
+use crate::ui::renderer::Renderer;
 
 impl InputManager {
     pub fn handle_menu_input(&self, input: &InputState, events: &mut EventBus) {
@@ -11,28 +12,23 @@ impl InputManager {
         }
 
         if input.left_click {
-            let btn_width = 200.0;
-            let btn_height = 50.0;
-            let btn_x = screen_width() / 2.0 - btn_width / 2.0;
-            let has_save = std::path::Path::new("save_slot_0.json").exists();
-            
-            let mut next_y = screen_height() / 2.0 + 20.0;
+            // Use Renderer's button bounds for consistency
+            let renderer = Renderer::new();
+            let (continue_bounds, new_game_bounds) = renderer.get_menu_button_bounds();
             
             // Check Continue button click (if save exists)
-            if has_save {
-                let btn_y = next_y;
-                if input.mouse_pos.x >= btn_x && input.mouse_pos.x <= btn_x + btn_width &&
-                   input.mouse_pos.y >= btn_y && input.mouse_pos.y <= btn_y + btn_height {
+            if let Some((btn_x, btn_y, btn_w, btn_h)) = continue_bounds {
+                if input.mouse_pos.x >= btn_x && input.mouse_pos.x <= btn_x + btn_w &&
+                   input.mouse_pos.y >= btn_y && input.mouse_pos.y <= btn_y + btn_h {
                     events.push_ui(UIEvent::LoadGame(0));
                     return;
                 }
-                next_y += btn_height + 15.0;
             }
 
             // Check New Game button click
-            let btn_y = next_y;
-            if input.mouse_pos.x >= btn_x && input.mouse_pos.x <= btn_x + btn_width &&
-               input.mouse_pos.y >= btn_y && input.mouse_pos.y <= btn_y + btn_height {
+            let (btn_x, btn_y, btn_w, btn_h) = new_game_bounds;
+            if input.mouse_pos.x >= btn_x && input.mouse_pos.x <= btn_x + btn_w &&
+               input.mouse_pos.y >= btn_y && input.mouse_pos.y <= btn_y + btn_h {
                 events.push_ui(UIEvent::StartGame);
             }
         }

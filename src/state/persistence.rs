@@ -57,6 +57,7 @@ pub struct SaveData {
     pub scrap_piles: Vec<SavedScrapPile>,
     pub upgrades: GameUpgrades,
     pub frame_count: u64,
+    pub time_survived: f32,
     // Interior repair states: room_id -> list of repaired repair point indices
     pub room_repair_states: Vec<Vec<bool>>,
     // Player state

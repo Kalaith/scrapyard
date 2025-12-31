@@ -7,18 +7,24 @@ use crate::ui::renderer::Renderer;
 
 impl Renderer {
     pub fn draw_gameplay(&self, state: &GameState) {
+        // Get screen shake offset for trauma feedback
+        let shake = self.get_shake_offset();
+        
         match state.view_mode {
             ViewMode::Exterior => {
                 self.draw_ship_hull(state);
                 self.draw_ship_grid(state);
-                self.draw_enemies(state);
-                self.draw_projectiles(state);
-                self.draw_particles(state);
+                self.draw_enemies(state, shake);
+                self.draw_projectiles(state, shake);
+                self.draw_particles(state, shake);
             }
             ViewMode::Interior => {
                 self.draw_interior(state);
             }
         }
+        
+        // Draw HUD with stats (always visible)
+        self.draw_hud(state);
         
         // View mode indicator
         let mode_text = match state.view_mode {
@@ -30,6 +36,38 @@ impl Renderer {
         // Tutorial overlay
         if !state.tutorial_state.is_complete() {
             self.draw_tutorial(state);
+        }
+    }
+    
+    fn draw_hud(&self, state: &GameState) {
+        // HUD background bar at top
+        draw_rectangle(0.0, 0.0, screen_width(), 35.0, color_u8!(0, 0, 0, 180));
+        
+        // Power info
+        let power_color = if state.used_power <= state.total_power { GREEN } else { RED };
+        let power_text = format!("Power: {}/{}", state.used_power, state.total_power);
+        draw_text(&power_text, 20.0, 24.0, 20.0, power_color);
+        
+        // Scrap
+        let scrap_text = format!("Scrap: {}", state.resources.scrap);
+        draw_text(&scrap_text, 180.0, 24.0, 20.0, ORANGE);
+        
+        // Credits
+        let credits_text = format!("Credits: {}", state.resources.credits);
+        draw_text(&credits_text, 320.0, 24.0, 20.0, YELLOW);
+        
+        // Ship integrity
+        let hp_pct = state.ship_integrity / state.ship_max_integrity;
+        let hp_color = if hp_pct > 0.6 { GREEN } else if hp_pct > 0.3 { YELLOW } else { RED };
+        let hp_text = format!("Hull: {:.0}/{:.0}", state.ship_integrity, state.ship_max_integrity);
+        draw_text(&hp_text, 480.0, 24.0, 20.0, hp_color);
+        
+        // Engine/Escape timer (if charging)
+        if state.engine_state == crate::state::EngineState::Charging {
+            let mins = (state.escape_timer / 60.0).floor() as i32;
+            let secs = (state.escape_timer % 60.0).floor() as i32;
+            let escape_text = format!("ESCAPE: {:02}:{:02}", mins, secs);
+            draw_text(&escape_text, screen_width() - 180.0, 24.0, 20.0, SKYBLUE);
         }
     }
 
@@ -108,62 +146,63 @@ impl Renderer {
         let facing_end = vec2(player_screen_x, player_screen_y) + state.player.facing * state.player.size;
         draw_line(player_screen_x, player_screen_y, facing_end.x, facing_end.y, 2.0, WHITE);
         
-        if let Some(room) = interior.room_at(state.player.position) {
-            if !room.repair_points.is_empty() {
-                for pile in &state.scrap_piles {
-                    if !pile.active { continue; }
-                    let screen_pos_x = cam_x + pile.position.x;
-                    let screen_pos_y = cam_y + pile.position.y;
-                    
-                    draw_circle(screen_pos_x, screen_pos_y, 8.0, BROWN);
-                    draw_circle(screen_pos_x, screen_pos_y, 6.0, DARKBROWN);
-                    
-                    if pile.position.distance(state.player.position) < INTERACTION_RANGE {
-                        draw_circle_lines(screen_pos_x, screen_pos_y, 12.0, 2.0, YELLOW);
-                        if state.gathering_target.is_none() {
-                             draw_text("[Hold E] Scavenge", screen_pos_x - 40.0, screen_pos_y - 15.0, 16.0, WHITE);
-                        }
-                    }
+        // Draw scrap piles (always visible regardless of player's room)
+        for pile in &state.scrap_piles {
+            if !pile.active { continue; }
+            let screen_pos_x = cam_x + pile.position.x;
+            let screen_pos_y = cam_y + pile.position.y;
+            
+            draw_circle(screen_pos_x, screen_pos_y, 8.0, BROWN);
+            draw_circle(screen_pos_x, screen_pos_y, 6.0, DARKBROWN);
+            
+            if pile.position.distance(state.player.position) < INTERACTION_RANGE {
+                draw_circle_lines(screen_pos_x, screen_pos_y, 12.0, 2.0, YELLOW);
+                if state.gathering_target.is_none() {
+                     draw_text("[Hold E] Scavenge", screen_pos_x - 40.0, screen_pos_y - 15.0, 16.0, WHITE);
                 }
+            }
+        }
+        
+        // Draw gathering progress bar
+        if let Some(_) = state.gathering_target {
+            if state.gathering_timer > 0.0 {
+                let progress = (state.gathering_timer / GATHERING_TIME_SECONDS).clamp(0.0, 1.0);
+                let bar_w = 40.0;
+                let bar_h = 6.0;
+                let px = player_screen_x - bar_w / 2.0;
+                let py = player_screen_y - 30.0;
                 
-                if let Some(_) = state.gathering_target {
-                    if state.gathering_timer > 0.0 {
-                        let progress = (state.gathering_timer / GATHERING_TIME_SECONDS).clamp(0.0, 1.0);
-                        let bar_w = 40.0;
-                        let bar_h = 6.0;
-                        let px = player_screen_x - bar_w / 2.0;
-                        let py = player_screen_y - 30.0;
-                        
-                        draw_rectangle(px, py, bar_w, bar_h, BLACK);
-                        draw_rectangle(px, py, bar_w * progress, bar_h, GREEN);
-                    }
-                }
+                draw_rectangle(px, py, bar_w, bar_h, BLACK);
+                draw_rectangle(px, py, bar_w * progress, bar_h, GREEN);
+            }
+        }
 
-                if let Some(point_idx) = room.repair_point_at(state.player.position) {
-                    if !room.repair_points[point_idx].repaired {
-                        if let Some(room_idx) = interior.rooms.iter().position(|r| r.id == room.id) {
-                            if let Some((scrap_cost, power_cost)) = state.get_repair_cost(room_idx, point_idx) {
-                                let is_reactor = power_cost == 0;
-                                let can_afford_scrap = state.resources.scrap >= scrap_cost;
-                                let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
-                                
-                                let cost_text = if is_reactor {
-                                    format!("{scrap_cost} Scrap")
-                                } else {
-                                    format!("{scrap_cost} Scrap + {power_cost} Power")
-                                };
-                                
-                                let label = if can_afford_scrap && can_afford_power {
-                                    format!("[E] Repair ({})", cost_text)
-                                } else if !can_afford_scrap {
-                                    format!("Need {scrap_cost} Scrap")
-                                } else {
-                                    format!("Need {power_cost} Power (Repair Reactor)")
-                                };
-                                
-                                let color = if can_afford_scrap && can_afford_power { YELLOW } else { RED };
-                                draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
-                            }
+        // Draw repair point UI (only when player is near repair points)
+        if let Some(room) = interior.room_at(state.player.position) {
+            if let Some(point_idx) = room.repair_point_at(state.player.position) {
+                if !room.repair_points[point_idx].repaired {
+                    if let Some(room_idx) = interior.rooms.iter().position(|r| r.id == room.id) {
+                        if let Some((scrap_cost, power_cost)) = state.get_repair_cost(room_idx, point_idx) {
+                            let is_reactor = power_cost == 0;
+                            let can_afford_scrap = state.resources.scrap >= scrap_cost;
+                            let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
+                            
+                            let cost_text = if is_reactor {
+                                format!("{scrap_cost} Scrap")
+                            } else {
+                                format!("{scrap_cost} Scrap + {power_cost} Power")
+                            };
+                            
+                            let label = if can_afford_scrap && can_afford_power {
+                                format!("[E] Repair ({})", cost_text)
+                            } else if !can_afford_scrap {
+                                format!("Need {scrap_cost} Scrap")
+                            } else {
+                                format!("Need {power_cost} Power (Repair Reactor)")
+                            };
+                            
+                            let color = if can_afford_scrap && can_afford_power { YELLOW } else { RED };
+                            draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
                         }
                     }
                 }
@@ -239,7 +278,7 @@ impl Renderer {
         }
     }
 
-    pub fn draw_enemies(&self, state: &GameState) {
+    pub fn draw_enemies(&self, state: &GameState, shake: Vec2) {
         for enemy in &state.enemies {
             let color = match enemy.enemy_type {
                 crate::enemy::entities::EnemyType::Nanodrone => GREEN,
@@ -249,37 +288,41 @@ impl Renderer {
                 crate::enemy::entities::EnemyType::Boss => RED,
             };
 
-            draw_circle(enemy.position.x, enemy.position.y, 8.0, color);
+            let ex = enemy.position.x + shake.x;
+            let ey = enemy.position.y + shake.y;
+            draw_circle(ex, ey, 8.0, color);
 
             if enemy.health < enemy.max_health {
                 let bar_width = 20.0;
                 let bar_height = 4.0;
                 let pct = enemy.health / enemy.max_health;
-                draw_rectangle(enemy.position.x - bar_width / 2.0, enemy.position.y - 15.0, bar_width, bar_height, RED);
-                draw_rectangle(enemy.position.x - bar_width / 2.0, enemy.position.y - 15.0, bar_width * pct, bar_height, GREEN);
+                draw_rectangle(ex - bar_width / 2.0, ey - 15.0, bar_width, bar_height, RED);
+                draw_rectangle(ex - bar_width / 2.0, ey - 15.0, bar_width * pct, bar_height, GREEN);
             }
         }
     }
 
-    pub fn draw_projectiles(&self, state: &GameState) {
+    pub fn draw_projectiles(&self, state: &GameState, shake: Vec2) {
         for proj in &state.projectiles {
+            let px = proj.position.x + shake.x;
+            let py = proj.position.y + shake.y;
             draw_line(
-                proj.position.x,
-                proj.position.y,
-                proj.position.x - proj.velocity.normalize().x * 10.0,
-                proj.position.y - proj.velocity.normalize().y * 10.0,
+                px,
+                py,
+                px - proj.velocity.normalize().x * 10.0,
+                py - proj.velocity.normalize().y * 10.0,
                 2.0,
                 YELLOW,
             );
         }
     }
 
-    pub fn draw_particles(&self, state: &GameState) {
+    pub fn draw_particles(&self, state: &GameState, shake: Vec2) {
         for particle in &state.particles {
             if particle.active {
                 let alpha = (particle.lifetime / particle.max_lifetime).clamp(0.0, 1.0);
                 let color = Color::new(particle.color.r, particle.color.g, particle.color.b, particle.color.a * alpha);
-                draw_circle(particle.position.x, particle.position.y, 3.0, color);
+                draw_circle(particle.position.x + shake.x, particle.position.y + shake.y, 3.0, color);
             }
         }
     }
