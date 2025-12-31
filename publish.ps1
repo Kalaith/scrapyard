@@ -1,18 +1,37 @@
-# Apartment Manager - Itch.io Publish Script
+# Generic Cargo Project - Itch.io Publish Script
 # Creates distributable packages for Windows and WebGL
+# Automatically reads project name from Cargo.toml
 
 param(
     [switch]$SkipBuild = $false,
     [switch]$WindowsOnly = $false,
-    [switch]$WebGLOnly = $false,
-    [string]$OutputName = "apartment_manager"
+    [switch]$WebGLOnly = $false
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
 $DistDir = Join-Path $ProjectRoot "dist"
+$CargoToml = Join-Path $ProjectRoot "Cargo.toml"
 
-Write-Host "=== Apartment Manager Publisher ===" -ForegroundColor Cyan
+# Parse project name from Cargo.toml
+if (-not (Test-Path $CargoToml)) {
+    Write-Error "Cargo.toml not found at: $CargoToml"
+    exit 1
+}
+
+$CargoContent = Get-Content $CargoToml -Raw
+if ($CargoContent -match 'name\s*=\s*"([^"]+)"') {
+    $ProjectName = $matches[1]
+} else {
+    Write-Error "Could not parse project name from Cargo.toml"
+    exit 1
+}
+
+# Create display-friendly title (capitalize words, replace underscores with spaces)
+$ProjectTitle = ($ProjectName -replace '_', ' ').ToUpper()
+
+Write-Host "=== $ProjectTitle Publisher ===" -ForegroundColor Cyan
+Write-Host "Project: $ProjectName"
 Write-Host ""
 
 # Calculate steps based on what we're building
@@ -52,19 +71,21 @@ if ($buildWindows) {
     New-Item -ItemType Directory -Path $WindowsPackageDir -Force | Out-Null
 
     # Copy executable
-    $ExePath = Join-Path $ProjectRoot "target\release\apartment.exe"
+    $ExePath = Join-Path $ProjectRoot "target\release\$ProjectName.exe"
     if (-not (Test-Path $ExePath)) {
         Write-Error "Executable not found at: $ExePath"
         exit 1
     }
     Copy-Item $ExePath $WindowsPackageDir
 
-    # Copy assets folder
+    # Copy assets folder if it exists
     $AssetsPath = Join-Path $ProjectRoot "assets"
-    Copy-Item $AssetsPath -Destination $WindowsPackageDir -Recurse
+    if (Test-Path $AssetsPath) {
+        Copy-Item $AssetsPath -Destination $WindowsPackageDir -Recurse
+    }
 
     # Create Windows zip
-    $WindowsZipPath = Join-Path $DistDir "${OutputName}_windows.zip"
+    $WindowsZipPath = Join-Path $DistDir "${ProjectName}_windows.zip"
     Compress-Archive -Path "$WindowsPackageDir\*" -DestinationPath $WindowsZipPath -CompressionLevel Optimal
     Write-Host "Windows package created!" -ForegroundColor Green
 }
@@ -74,7 +95,6 @@ if ($buildWebGL) {
     $currentStep++
     if (-not $SkipBuild) {
         Write-Host "[$currentStep/$totalSteps] Building WebGL release..." -ForegroundColor Yellow
-        Write-Host "Note: WebGL build requires 'rand' crate to be replaced with macroquad::rand" -ForegroundColor DarkYellow
         
         # Check if wasm32 target is installed
         $targets = rustup target list --installed
@@ -99,16 +119,18 @@ if ($buildWebGL) {
     New-Item -ItemType Directory -Path $WebGLPackageDir -Force | Out-Null
 
     # Copy WASM file
-    $WasmPath = Join-Path $ProjectRoot "target\wasm32-unknown-unknown\release\apartment.wasm"
+    $WasmPath = Join-Path $ProjectRoot "target\wasm32-unknown-unknown\release\$ProjectName.wasm"
     if (-not (Test-Path $WasmPath)) {
         Write-Error "WASM file not found at: $WasmPath"
         exit 1
     }
     Copy-Item $WasmPath $WebGLPackageDir
 
-    # Copy assets folder
+    # Copy assets folder if it exists
     $AssetsPath = Join-Path $ProjectRoot "assets"
-    Copy-Item $AssetsPath -Destination $WebGLPackageDir -Recurse
+    if (Test-Path $AssetsPath) {
+        Copy-Item $AssetsPath -Destination $WebGLPackageDir -Recurse
+    }
 
     # Download mq_js_bundle.js locally (so we don't rely on CDN)
     $JsBundlePath = Join-Path $WebGLPackageDir "mq_js_bundle.js"
@@ -121,15 +143,13 @@ if ($buildWebGL) {
     $UseLocalJs = Test-Path $JsBundlePath
 
     # Create HTML wrapper
-    # Note: For itch.io, set viewport dimensions to 1280x720 in upload settings
     $HtmlContent = @"
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1280, height=720, initial-scale=1.0">
-    <title>Apartment Manager</title>
-    <!-- itch.io: Set viewport to 1280x720 in Embed Options -->
+    <title>$ProjectTitle</title>
     <style>
         html, body {
             margin: 0;
@@ -161,7 +181,7 @@ if ($buildWebGL) {
     <script src="mq_js_bundle.js"></script>
     <script>
         document.getElementById('loading').style.display = 'none';
-        load("apartment.wasm");
+        load("$ProjectName.wasm");
     </script>
 </body>
 </html>
@@ -170,7 +190,7 @@ if ($buildWebGL) {
     Set-Content -Path $HtmlPath -Value $HtmlContent
 
     # Create WebGL zip
-    $WebGLZipPath = Join-Path $DistDir "${OutputName}_webgl.zip"
+    $WebGLZipPath = Join-Path $DistDir "${ProjectName}_webgl.zip"
     Compress-Archive -Path "$WebGLPackageDir\*" -DestinationPath $WebGLZipPath -CompressionLevel Optimal
     Write-Host "WebGL package created!" -ForegroundColor Green
 }
@@ -181,13 +201,13 @@ Write-Host ""
 Write-Host "=== Package Complete ===" -ForegroundColor Cyan
 
 if ($buildWindows) {
-    $WindowsZipPath = Join-Path $DistDir "${OutputName}_windows.zip"
+    $WindowsZipPath = Join-Path $DistDir "${ProjectName}_windows.zip"
     $WinSize = [math]::Round((Get-Item $WindowsZipPath).Length / 1MB, 2)
     Write-Host "Windows: $WindowsZipPath (${WinSize} MB)" -ForegroundColor Green
 }
 
 if ($buildWebGL) {
-    $WebGLZipPath = Join-Path $DistDir "${OutputName}_webgl.zip"
+    $WebGLZipPath = Join-Path $DistDir "${ProjectName}_webgl.zip"
     $WebSize = [math]::Round((Get-Item $WebGLZipPath).Length / 1MB, 2)
     Write-Host "WebGL:   $WebGLZipPath (${WebSize} MB)" -ForegroundColor Green
 }
