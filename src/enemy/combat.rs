@@ -58,15 +58,37 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
         let effective_damage = base_damage * repair_pct;
         let effective_range = base_range * (0.5 + 0.5 * repair_pct); // 50% base range + 50% from repairs
         
-        let fire_chance = effective_fire_rate * dt;
-        
-        if rand::gen_range(0.0, 1.0) < fire_chance {
-            let tower_pos = Layout::grid_to_screen_center(gx, gy);
-            
-            if let Some(target) = find_nearest_enemy(&state.enemies, tower_pos, effective_range) {
-                new_projectiles.push(Projectile::new(tower_pos, target, 400.0, effective_damage));
-                events.push_game(GameEvent::WeaponFired { x: tower_pos.x, y: tower_pos.y });
-            }
+        // Access Module to update cooldown
+        // Note: Using disjoint borrow of state should work (interior is borrowed, ship is separate)
+        if let Some(cell) = state.ship.grid.get_mut(gx).and_then(|row| row.get_mut(gy)) {
+             if let Some(module) = cell {
+                 // Decrease cooldown
+                 module.cooldown -= dt;
+                 
+                 // Debug prints every 60 frames (approx 1 sec) to reduce spam?
+                 // Or just print if cooldown <= 0?
+                 if module.cooldown <= 0.0 && state.frame_count % 60 == 0 {
+                    // println!("Weapon Ready: Repaired {}/{} (Pct {:.2}), Rate {:.2}, EffRate {:.2}, Rng {:.0}", 
+                    //    room.repaired_count(), room.repair_points.len(), repair_pct, base_fire_rate, effective_fire_rate, effective_range);
+                 }
+                 
+                 // Ready to fire?
+                 if module.cooldown <= 0.0 {
+                     let tower_pos = Layout::grid_to_screen_center(gx, gy);
+                     
+                     if let Some(target) = find_nearest_enemy(&state.enemies, tower_pos, effective_range) {
+                         new_projectiles.push(Projectile::new(tower_pos, target, 400.0, effective_damage));
+                         events.push_game(GameEvent::WeaponFired { x: tower_pos.x, y: tower_pos.y });
+                         
+                         // Reset cooldown
+                         if effective_fire_rate > 0.001 {
+                             module.cooldown = 1.0 / effective_fire_rate;
+                         } else {
+                             module.cooldown = 10.0;
+                         }
+                     }
+                 }
+             }
         }
     }
     
@@ -201,13 +223,15 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
     // Cap at 80% damage reduction max
     shield_reduction = shield_reduction.min(0.8);
     
-    for enemy in &state.enemies {
+    for enemy in &mut state.enemies {
         if enemy.health <= 0.0 { continue; }
+        
+        let mut hit_something = false;
         
         if let Some(grid_pos) = Layout::screen_to_grid(enemy.position) {
             let (gx, gy) = grid_pos;
             
-            for dx in -1i32..=1 {
+            'outer: for dx in -1i32..=1 {
                 for dy in -1i32..=1 {
                     let nx = (gx as i32 + dx) as usize;
                     let ny = (gy as i32 + dy) as usize;
@@ -223,18 +247,28 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
                                 let damage = base_damage * (1.0 - shield_reduction);
                                 state.ship_integrity -= damage;
                                 
-                                events.push_game(GameEvent::ModuleDamaged { 
-                                    x: nx, 
-                                    y: ny, 
-                                    damage 
-                                });
+                                hit_something = true;
                                 
-                                break;
+                                // Only play sound (emit event) if not already attacking
+                                if !enemy.attacking {
+                                    enemy.attacking = true;
+                                    events.push_game(GameEvent::ModuleDamaged { 
+                                        x: nx, 
+                                        y: ny, 
+                                        damage 
+                                    });
+                                }
+                                
+                                break 'outer;
                             }
                         }
                     }
                 }
             }
+        }
+        
+        if !hit_something {
+            enemy.attacking = false;
         }
     }
 }

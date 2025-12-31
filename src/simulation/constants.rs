@@ -2,7 +2,7 @@
 
 pub const GRID_WIDTH: usize = 20;
 pub const GRID_HEIGHT: usize = 15;
-pub const CELL_SIZE: f32 = 40.0;
+pub const CELL_SIZE: f32 = 30.0;
 pub const SCREEN_WIDTH: f32 = 1280.0;
 pub const SCREEN_HEIGHT: f32 = 720.0;
 
@@ -84,7 +84,7 @@ pub const NANO_REPAIR_INTERVAL_SECONDS: f32 = 2.0;
 
 // Engine system
 pub const ENGINE_CHARGE_BASE_TIME: f32 = 60.0;
-pub const ENGINE_MIN_REPAIR_PERCENT: f32 = 0.25;
+pub const ENGINE_MIN_REPAIR_PERCENT: f32 = 1.0;
 
 // Screen shake
 pub const TRAUMA_DECAY_RATE: f32 = 1.5; // Adjusted to match current renderer.rs
@@ -105,4 +105,15 @@ pub const MODULE_UPGRADE_HP_MULTIPLIER: f32 = 1.5;  // HP multiplier per upgrade
 
 // Repair costs
 pub const REPAIR_SCRAP_COST: i32 = 10;  // Scrap cost per interior repair point
+
+// Engine Stress System
+pub const STRESS_GAIN_PER_REPAIR: f32 = 6.0;
+pub const STRESS_DECAY_IDLE: f32 = 2.0;       // Per second
+pub const STRESS_THRESHOLD_STRAINED: f32 = 16.0;
+pub const STRESS_THRESHOLD_UNSTABLE: f32 = 31.0;
+pub const STRESS_THRESHOLD_CRITICAL: f32 = 46.0;
+pub const CASCADE_DAMAGE_PER_SEC: f32 = 50.0; // Rapid internal damage during cascade
+pub const CASCADE_BOSS_SPAWN_STRESS: f32 = 46.0; // Redundant with threshold but semantic
+pub const NANITE_ALERT_BASE: f32 = 16.0;      // Base divisor for charging stress
+
 

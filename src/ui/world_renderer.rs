@@ -12,7 +12,7 @@ impl Renderer {
         
         match state.view_mode {
             ViewMode::Exterior => {
-                self.draw_ship_hull(state);
+                // self.draw_ship_hull(state); // Removed per user request
                 self.draw_ship_grid(state);
                 self.draw_enemies(state, shake);
                 self.draw_projectiles(state, shake);
@@ -67,13 +67,40 @@ impl Renderer {
         let hp_color = if hp_pct > 0.6 { GREEN } else if hp_pct > 0.3 { YELLOW } else { RED };
         let hp_text = format!("Hull: {:.0}/{:.0}", state.ship_integrity, state.ship_max_integrity);
         draw_text(&hp_text, 480.0, 24.0, 20.0, hp_color);
+
+        // Engine Status
+        let (stress_text, stress_color) = if state.engine_stress >= STRESS_THRESHOLD_CRITICAL {
+            ("ENGINE: CASCADE", RED)
+        } else if state.engine_stress >= STRESS_THRESHOLD_UNSTABLE {
+            ("ENGINE: UNSTABLE", ORANGE)
+        } else if state.engine_stress >= STRESS_THRESHOLD_STRAINED {
+            ("ENGINE: STRAINED", YELLOW)
+        } else {
+             if state.engine_stress > 0.0 {
+                 ("ENGINE: WARM", GREEN)
+             } else {
+                 ("ENGINE: STABLE", BLUE)
+             }
+        };
+        // Shake text if critical
+        let (dx, dy) = if state.engine_stress >= STRESS_THRESHOLD_CRITICAL { 
+             (macroquad::rand::gen_range(-2.0, 2.0), macroquad::rand::gen_range(-2.0, 2.0))
+        } else { (0.0, 0.0) };
+        draw_text(stress_text, 680.0 + dx, 24.0 + dy, 20.0, stress_color);
+        
+        // Nanite Alert
+        let alert_x = 900.0;
+        draw_text("Alert:", alert_x, 24.0, 20.0, WHITE);
+        draw_rectangle(alert_x + 60.0, 10.0, 100.0, 14.0, DARKGRAY);
+        let alert_pct = (state.nanite_alert / 50.0).clamp(0.0, 1.0);
+        draw_rectangle(alert_x + 60.0, 10.0, 100.0 * alert_pct, 14.0, RED);
         
         // Engine/Escape timer (if charging)
         if state.engine_state == crate::state::EngineState::Charging {
             let mins = (state.escape_timer / 60.0).floor() as i32;
             let secs = (state.escape_timer % 60.0).floor() as i32;
             let escape_text = format!("ESCAPE: {:02}:{:02}", mins, secs);
-            draw_text(&escape_text, screen_width() - 180.0, 24.0, 20.0, SKYBLUE);
+            draw_text(&escape_text, screen_width() - 180.0, 48.0, 20.0, SKYBLUE);
         }
     }
 
@@ -256,11 +283,12 @@ impl Renderer {
                 let py = start_y + y as f32 * CELL_SIZE;
                 let module = &state.ship.grid[x][y];
 
-                self.draw_module_base(px, py, module.is_some());
-                draw_rectangle_lines(px, py, CELL_SIZE, CELL_SIZE, 1.0, COLOR_GRID_LINE);
-
                 if let Some(mod_data) = module {
+                    self.draw_module_base(px, py, true);
+                    draw_rectangle_lines(px, py, CELL_SIZE, CELL_SIZE, 1.0, COLOR_GRID_LINE);
                     self.draw_module(px, py, mod_data);
+                } else {
+                    // Draw nothing for empty space
                 }
             }
         }

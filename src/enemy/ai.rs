@@ -73,7 +73,7 @@ fn spawn_guard(enemies: &mut Vec<Enemy>, frame_count: u64) {
     enemies.push(Enemy::new(id, EnemyType::Nanoguard, pos));
 }
 
-fn spawn_boss(enemies: &mut Vec<Enemy>, events: &mut EventBus, frame_count: u64) {
+pub fn spawn_boss(enemies: &mut Vec<Enemy>, events: &mut EventBus, frame_count: u64) {
     // Spawn boss at top center
     let pos = vec2(SCREEN_WIDTH / 2.0, -100.0);
     let id = generate_enemy_id(enemies.len(), frame_count);
@@ -108,6 +108,12 @@ pub fn update_enemies(state: &mut GameState, dt: f32) {
                 let dir = (core_pos - enemy.position).normalize_or_zero();
                 enemy.position += dir * enemy.speed * dt;
                 enemy.target_module = state.ship.find_core();
+                
+                // Debug if stuck
+                // if state.frame_count % 60 == 0 {
+                //      println!("Drone {} at {}, speed {}, dt {}, dir {}, core {}", 
+                //      enemy.id, enemy.position, enemy.speed, dt, dir, core_pos);
+                // }
             }
             EnemyType::Nanoguard => {
                 // Tank: Try to find nearest weapon/shield first, then core
@@ -157,11 +163,10 @@ pub fn update_enemies(state: &mut GameState, dt: f32) {
                 let center = vec2(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0);
                 let dist_to_center = enemy.position.distance(center);
                 
-                // Move toward center but stop at distance 150
-                if dist_to_center > 150.0 {
-                    let dir = (center - enemy.position).normalize_or_zero();
-                    enemy.position += dir * enemy.speed * dt;
-                }
+                // Boss moves to Core/Center to attack
+                // Removing 150.0 distance stop so it actually attacks
+                let dir = (center - enemy.position).normalize_or_zero();
+                enemy.position += dir * enemy.speed * dt;
                 
                 // Update ability timer
                 enemy.ability_timer += dt;

@@ -88,6 +88,12 @@ impl GameState {
          if !is_reactor && (self.used_power + power_cost > self.total_power) { return false; }
          self.resources.deduct(scrap_cost);
          self.interior.rooms[room_idx].repair_points[point_idx].repaired = true;
+         
+         // Engine Stress Logic
+         if matches!(self.interior.rooms[room_idx].room_type, RoomType::Module(ModuleType::Engine)) {
+             self.engine_stress += STRESS_GAIN_PER_REPAIR;
+         }
+
          events.push_game(GameEvent::ModuleRepaired { x: 0, y: 0, cost: scrap_cost }); // Coords meaningless for interior points
          
          if self.interior.rooms[room_idx].is_fully_repaired() {

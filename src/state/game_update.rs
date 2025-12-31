@@ -103,11 +103,47 @@ impl GameState {
                  }
             }
         }
+        // Engine Charging Logic with Hysteresis (Safety Shutdown)
         if engine_repair_pct >= ENGINE_MIN_REPAIR_PERCENT {
-            if self.engine_state == EngineState::Idle {
-                self.engine_state = EngineState::Charging;
+             match self.engine_state {
+                 EngineState::Idle => {
+                     // Only start charging if we have cooled down sufficently (Hysteresis)
+                     // If we just hit Critical, we wait until Unstable (31) to restart.
+                     // (If we were never critical, we start immediately since stress starts at 0)
+                     if self.engine_stress <= STRESS_THRESHOLD_UNSTABLE {
+                         self.engine_state = EngineState::Charging;
+                     }
+                 },
+                 EngineState::Charging => {
+                     // Check for Overheat (Critical Stress)
+                     // If critical, trigger Emergency Shutdown (Force Idle)
+                     if self.engine_stress >= STRESS_THRESHOLD_CRITICAL {
+                         self.engine_state = EngineState::Idle;
+                         // Note: Cascade damage logic below will still tick for this frame, 
+                         // but next frame we are Idle and decaying.
+                     }
+                 },
+                 _ => {}
+             }
+        } else {
+             self.engine_state = EngineState::Idle;
+        }
+
+        // --- NANITE ALERT ---
+        self.nanite_alert += dt * 0.1; // Base growth over time
+
+        // --- ENGINE STRESS ---
+        match self.engine_state {
+            EngineState::Idle => {
+                if self.engine_stress > 0.0 {
+                    self.engine_stress = (self.engine_stress - STRESS_DECAY_IDLE * dt).max(0.0);
+                }
             }
-            if self.engine_state == EngineState::Charging {
+            EngineState::Charging => {
+                let gain = 1.0 * (self.nanite_alert / NANITE_ALERT_BASE);
+                self.engine_stress += gain * dt;
+                
+                // Original Charging Logic within Charging State
                 self.escape_timer -= dt * engine_repair_pct;
                 if self.escape_timer <= 0.0 {
                     self.engine_state = EngineState::Escaped;
@@ -118,8 +154,25 @@ impl GameState {
                     events.push_game(GameEvent::EscapeSuccess);
                 }
             }
-        } else {
-             self.engine_state = EngineState::Idle;
+            _ => {}
+        }
+        
+        // --- CASCADE FAILURE ---
+        if self.engine_stress >= STRESS_THRESHOLD_CRITICAL {
+             // 1. Rapid Internal Damage
+             self.ship_integrity -= CASCADE_DAMAGE_PER_SEC * dt;
+             
+             // 2. Spawn Boss + Alert Spike
+             let has_boss = self.enemies.iter().any(|e| e.enemy_type == crate::enemy::entities::EnemyType::Boss);
+             if !has_boss {
+                 crate::enemy::ai::spawn_boss(&mut self.enemies, events, self.frame_count);
+                 self.nanite_alert += 8.0; 
+             }
+             
+             // 3. Charge Reversal (Engine fighting itself)
+             if self.engine_state == EngineState::Charging {
+                self.escape_timer += dt * 5.0; // Reverse progress significantly
+             }
         }
     }
 }

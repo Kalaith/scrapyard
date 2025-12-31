@@ -71,6 +71,8 @@ pub struct GameState {
     pub settings_open: bool,
     pub settings_selection: usize,
     pub settings: Settings,
+    pub engine_stress: f32,
+    pub nanite_alert: f32,
 }
 
 impl GameState {
@@ -117,6 +119,8 @@ impl GameState {
             settings_open: false,
             settings_selection: 0,
             settings: Settings::load(),
+            engine_stress: 0.0,
+            nanite_alert: NANITE_ALERT_BASE, // Initial alert level
         };
         
         state.spawn_scrap_piles();
@@ -138,6 +142,9 @@ impl GameState {
         self.escape_timer = 60.0;
         self.view_mode = ViewMode::Interior;
         self.player = Player::new_at(self.interior.player_start_position());
+        self.engine_stress = 0.0;
+        self.nanite_alert = NANITE_ALERT_BASE;
+        
         self.total_power = 0;
         self.used_power = 0;
         self.ship_integrity = SHIP_BASE_INTEGRITY;
@@ -148,9 +155,11 @@ impl GameState {
         self.scrap_piles.clear();
         self.gathering_target = None;
         self.gathering_timer = 0.0;
+        
         self.wave_state = WaveState::new();
         self.repair_timer = 0.0;
         self.pause_menu_selection = 0;
+
         self.spawn_scrap_piles();
     }
 

@@ -3,10 +3,25 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct WeaponConfig {
-    pub damage: f32,
-    pub range: f32,
-    pub fire_rate: f32,
+struct ModulesJson {
+    modules: HashMap<String, ModuleConfigRaw>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ModuleConfigRaw {
+    name: String,
+    base_cost: i32,
+    #[serde(default)]
+    power_generation: i32,
+    #[serde(default)]
+    power_consumption: i32,
+    max_health: f32,
+    #[serde(default)]
+    range: f32,
+    #[serde(default)]
+    damage: f32,
+    #[serde(default)]
+    fire_rate: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -49,43 +64,43 @@ impl ModuleRegistry {
     pub fn new() -> Self {
         let mut stats = HashMap::new();
 
-        // Load weapon config from embedded JSON
-        let weapon_json = include_str!("../../assets/stats/weapons.json");
-        let weapon_configs: HashMap<String, WeaponConfig> = serde_json::from_str(weapon_json)
+        // Load modules config from embedded JSON
+        let json_content = include_str!("../../assets/modules.json");
+        let config: ModulesJson = serde_json::from_str(json_content)
             .unwrap_or_else(|e| {
-                eprintln!("Warning: Failed to parse weapons.json: {}. Using defaults.", e);
-                HashMap::new()
+                eprintln!("Warning: Failed to parse modules.json: {}. Using hardcoded defaults.", e);
+                // Return empty so defaults below are used, or panic? 
+                // Better to panic in dev if assets are broken.
+                // But let's return a basic struct to avoid crash if possible, but map lookups will fail.
+                ModulesJson { modules: HashMap::new() }
             });
 
-        let default_weapon = WeaponConfig { damage: 10.0, range: 200.0, fire_rate: 1.0 };
-        let pulse_turret = weapon_configs.get("Pulse Turret").unwrap_or(&default_weapon);
+        // Helper to determine module type from string
+        fn get_module_type(key: &str) -> Option<ModuleType> {
+             match key.to_lowercase().as_str() {
+                 "core" => Some(ModuleType::Core),
+                 "weapon" => Some(ModuleType::Weapon),
+                 "defense" => Some(ModuleType::Defense),
+                 "utility" => Some(ModuleType::Utility),
+                 "engine" => Some(ModuleType::Engine),
+                 "empty" => Some(ModuleType::Empty),
+                 _ => None,
+             }
+        }
 
-        // 1. Core
-        stats.insert(ModuleType::Core, ModuleStats::new("Power Core", 0, 10, 1000.0));
-        
-        // 2. Weapons
-        stats.insert(ModuleType::Weapon, 
-            ModuleStats::new("Pulse Turret", 20, -2, 100.0)
-            .with_combat(pulse_turret.range, pulse_turret.damage, pulse_turret.fire_rate)
-        );
+        for (key, raw) in config.modules {
+             if let Some(mod_type) = get_module_type(&key) {
+                 let power = if raw.power_generation > 0 { raw.power_generation } else { -raw.power_consumption };
+                 let stats_obj = ModuleStats::new(&raw.name, raw.base_cost, power, raw.max_health)
+                     .with_combat(raw.range, raw.damage, raw.fire_rate);
+                 stats.insert(mod_type, stats_obj);
+             } else {
+                 eprintln!("Warning: Unknown module type in JSON: {}", key);
+             }
+        }
 
-        // 3. Defense
-        stats.insert(ModuleType::Defense,
-            ModuleStats::new("Shield Gen", 30, -3, 150.0)
-        );
-
-        // 4. Utility
-        stats.insert(ModuleType::Utility,
-             ModuleStats::new("Recycler", 25, -1, 80.0)
-        );
-        
-        // 5. Engine
-        stats.insert(ModuleType::Engine,
-            ModuleStats::new("Hyperdrive", 500, -50, 500.0)
-        );
-
-        // 6. Empty
-        stats.insert(ModuleType::Empty, ModuleStats::new("Empty Slot", 0, 0, 0.0));
+        // Ensure Empty exists if not in JSON
+        stats.entry(ModuleType::Empty).or_insert_with(|| ModuleStats::new("Empty Slot", 0, 0, 0.0));
 
         Self { stats }
     }

@@ -11,9 +11,9 @@
             "base_cost": 20,
             "power_consumption": 2,
             "max_health": 100.0,
-            "range": 300.0,
+            "range": 400.0,
             "damage": 10.0,
-            "fire_rate": 1.0
+            "fire_rate": 14.0
         },
         "defense": {
             "name": "Shield Generator",

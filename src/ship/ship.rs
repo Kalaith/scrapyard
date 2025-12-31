@@ -25,6 +25,8 @@ pub struct Module {
     pub level: u8,
     pub health: f32,
     pub max_health: f32,
+    #[serde(default)]
+    pub cooldown: f32,
 }
 
 impl Module {
@@ -35,6 +37,7 @@ impl Module {
             level: 1,
             health: 100.0,
             max_health: 100.0,
+            cooldown: 0.0,
         }
     }
 }

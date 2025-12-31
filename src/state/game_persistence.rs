@@ -96,6 +96,7 @@ impl GameState {
             target_module: s.target,
             attached_to: s.attached_to,
             ability_timer: s.ability_timer,
+            attacking: false,
         }).collect();
         state.projectiles = save_data.projectiles.into_iter().map(|s| Projectile {
             position: vec2(s.pos.0, s.pos.1),

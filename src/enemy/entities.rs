@@ -23,6 +23,7 @@ pub struct Enemy {
     pub target_module: Option<(usize, usize)>, // Grid coords
     pub attached_to: Option<(usize, usize)>,   // For Leech: module it's attached to
     pub ability_timer: f32,                     // For Boss: cooldown for special abilities
+    pub attacking: bool,                        // Tracks if currently dealing damage (for sound throttling)
 }
 
 impl Enemy {
@@ -46,6 +47,7 @@ impl Enemy {
             target_module: None,
             attached_to: None,
             ability_timer: 0.0,
+            attacking: false,
         }
     }
 }
