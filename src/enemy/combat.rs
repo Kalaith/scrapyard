@@ -56,7 +56,7 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
         // Scale with repair percentage
         let effective_fire_rate = base_fire_rate * repair_pct;
         let effective_damage = base_damage * repair_pct;
-        let effective_range = base_range; // Range stays constant (or could scale)
+        let effective_range = base_range * (0.5 + 0.5 * repair_pct); // 50% base range + 50% from repairs
         
         let fire_chance = effective_fire_rate * dt;
         

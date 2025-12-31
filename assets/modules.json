@@ -11,7 +11,7 @@
             "base_cost": 20,
             "power_consumption": 2,
             "max_health": 100.0,
-            "range": 200.0,
+            "range": 300.0,
             "damage": 10.0,
             "fire_rate": 1.0
         },

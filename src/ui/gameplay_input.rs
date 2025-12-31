@@ -62,6 +62,12 @@ impl InputManager {
         let start_y = box_y + 70.0;
         let spacing = 50.0;
 
+        // If settings panel is open, handle settings input instead
+        if state.settings_open {
+            self.handle_settings_input(input, state, events);
+            return;
+        }
+
         // Mouse hover updates selection
         let (mx, my) = (input.mouse_pos.x, input.mouse_pos.y);
         for i in 0..option_count {
@@ -74,6 +80,10 @@ impl InputManager {
                     let selected = menu_options[i];
                     match selected {
                         PauseMenuOption::Resume => events.push_ui(UIEvent::Resume),
+                        PauseMenuOption::Settings => {
+                            state.settings_open = true;
+                            state.settings_selection = 0;
+                        }
                         PauseMenuOption::SaveGame => events.push_ui(UIEvent::SaveGame(0)),
                         PauseMenuOption::LoadGame => events.push_ui(UIEvent::LoadGame(0)),
                         PauseMenuOption::ReturnToMenu => events.push_ui(UIEvent::ReturnToMenu),
@@ -103,11 +113,72 @@ impl InputManager {
             let selected = menu_options[state.pause_menu_selection];
             match selected {
                 PauseMenuOption::Resume => events.push_ui(UIEvent::Resume),
+                PauseMenuOption::Settings => {
+                    state.settings_open = true;
+                    state.settings_selection = 0;
+                }
                 PauseMenuOption::SaveGame => events.push_ui(UIEvent::SaveGame(0)),
                 PauseMenuOption::LoadGame => events.push_ui(UIEvent::LoadGame(0)),
                 PauseMenuOption::ReturnToMenu => events.push_ui(UIEvent::ReturnToMenu),
                 PauseMenuOption::ExitGame => events.push_ui(UIEvent::ExitGame),
             }
+        }
+    }
+
+    fn handle_settings_input(&mut self, input: &InputState, state: &mut GameState, events: &mut EventBus) {
+        const SETTING_COUNT: usize = 6; // 5 settings + Back
+        
+        // Up/Down navigation
+        if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
+            state.settings_selection = if state.settings_selection == 0 {
+                SETTING_COUNT - 1
+            } else {
+                state.settings_selection - 1
+            };
+        }
+        if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::S) {
+            state.settings_selection = (state.settings_selection + 1) % SETTING_COUNT;
+        }
+
+        // Left/Right adjusts value
+        let left = is_key_pressed(KeyCode::Left) || is_key_pressed(KeyCode::A);
+        let right = is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::D);
+        let delta = if right { 0.1 } else if left { -0.1 } else { 0.0 };
+
+        if delta != 0.0 {
+            match state.settings_selection {
+                0 => state.settings.master_volume = (state.settings.master_volume + delta).clamp(0.0, 1.0),
+                1 => state.settings.sfx_volume = (state.settings.sfx_volume + delta).clamp(0.0, 1.0),
+                2 => state.settings.music_volume = (state.settings.music_volume + delta).clamp(0.0, 1.0),
+                _ => {}
+            }
+        }
+
+        // Enter toggles booleans or selects Back
+        if input.enter_pressed || input.space_pressed {
+            match state.settings_selection {
+                3 => {
+                    state.settings.fullscreen = !state.settings.fullscreen;
+                    // Apply fullscreen immediately
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        macroquad::window::set_fullscreen(state.settings.fullscreen);
+                    }
+                }
+                4 => state.settings.screen_shake = !state.settings.screen_shake,
+                5 => {
+                    // Back - save and close
+                    let _ = state.settings.save();
+                    state.settings_open = false;
+                }
+                _ => {}
+            }
+        }
+
+        // Escape also closes settings
+        if is_key_pressed(KeyCode::Escape) {
+            let _ = state.settings.save();
+            state.settings_open = false;
         }
     }
 
@@ -166,7 +237,7 @@ impl InputManager {
         nearest
     }
 
-    fn handle_interact(&self, state: &mut GameState, _events: &mut EventBus) {
+    fn handle_interact(&self, state: &mut GameState, events: &mut EventBus) {
         // Advance from welcome step on first E press
         if state.tutorial_state.is_welcome() {
             state.tutorial_state.advance(&state.tutorial_config);
@@ -191,7 +262,7 @@ impl InputManager {
         let Some(point_idx) = room.repair_point_at(state.player.position) else { return };
         
         // Attempt repair
-        if !state.attempt_interior_repair(room_idx, point_idx) { return };
+        if !state.attempt_interior_repair(room_idx, point_idx, events) { return };
         
         // Advance tutorial when player repairs ANY point in the target room
         // This gives immediate positive feedback instead of requiring full room completion
@@ -202,21 +273,4 @@ impl InputManager {
         }
     }
 
-    
-    pub fn handle_grid_click(&self, x: usize, y: usize, state: &GameState, events: &mut EventBus) {
-        if let Some(module) = &state.ship.grid[x][y] {
-            match module.state {
-                ModuleState::Destroyed => {
-                    events.push_ui(UIEvent::Repair(x, y));
-                }
-                ModuleState::Active | ModuleState::Offline => {
-                    // Engine activation is now automatic via interior repairs
-                    // All other modules can be toggled
-                    if module.module_type != ModuleType::Engine {
-                        events.push_ui(UIEvent::Toggle(x, y));
-                    }
-                }
-            }
-        }
-    }
 }

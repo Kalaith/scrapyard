@@ -6,3 +6,4 @@ pub mod input_manager;
 pub mod ui_input;
 pub mod gameplay_input;
 pub mod pause_menu;
+pub mod sound_manager;

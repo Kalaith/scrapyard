@@ -47,7 +47,7 @@ pub const BOSS_ABILITY_COOLDOWN: f32 = 8.0; // Seconds between boss abilities
 pub const BOSS_SPLIT_COUNT: usize = 3; // Number of drones spawned on boss death
 
 // Wave Logic
-pub const WAVE_GRACE_POWER: i32 = 10;   // Enemies don't spawn until player has more power
+pub const WAVE_GRACE_POWER: i32 = 4;   // Enemies don't spawn until player has more power
 pub const WAVE_T1_POWER: i32 = 16;      // First tier of enemy scaling
 pub const WAVE_T2_POWER: i32 = 24;      // Second tier - guards start appearing
 pub const WAVE_T3_POWER: i32 = 40;      // Final tier - full assault

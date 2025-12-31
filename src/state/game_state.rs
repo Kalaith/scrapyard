@@ -68,6 +68,8 @@ pub struct GameState {
     pub wave_state: WaveState,
     pub repair_timer: f32,
     pub pause_menu_selection: usize,
+    pub settings_open: bool,
+    pub settings_selection: usize,
     pub settings: Settings,
 }
 
@@ -112,6 +114,8 @@ impl GameState {
             wave_state: WaveState::new(),
             repair_timer: 0.0,
             pause_menu_selection: 0,
+            settings_open: false,
+            settings_selection: 0,
             settings: Settings::load(),
         };
         

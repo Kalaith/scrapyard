@@ -47,7 +47,11 @@ impl Renderer {
                 self.draw_gameplay(state);
                 // Draw pause menu overlay if paused
                 if state.paused {
-                    self.draw_pause_menu(state, state.pause_menu_selection);
+                    if state.settings_open {
+                        self.draw_settings_panel(state);
+                    } else {
+                        self.draw_pause_menu(state, state.pause_menu_selection);
+                    }
                 }
             }
             GamePhase::GameOver => self.draw_game_over(state),

@@ -73,7 +73,7 @@ impl GameState {
         Some((scrap_cost, power_cost))
     }
 
-    pub fn attempt_interior_repair(&mut self, room_idx: usize, point_idx: usize) -> bool {
+    pub fn attempt_interior_repair(&mut self, room_idx: usize, point_idx: usize, events: &mut EventBus) -> bool {
          if room_idx >= self.interior.rooms.len() { return false; }
          let (scrap_cost, power_cost) = match self.get_repair_cost(room_idx, point_idx) {
              Some(c) => c,
@@ -88,6 +88,8 @@ impl GameState {
          if !is_reactor && (self.used_power + power_cost > self.total_power) { return false; }
          self.resources.deduct(scrap_cost);
          self.interior.rooms[room_idx].repair_points[point_idx].repaired = true;
+         events.push_game(GameEvent::ModuleRepaired { x: 0, y: 0, cost: scrap_cost }); // Coords meaningless for interior points
+         
          if self.interior.rooms[room_idx].is_fully_repaired() {
             if let Some((gx, gy)) = self.interior.rooms[room_idx].module_index {
                 if let Some(module) = &mut self.ship.grid[gx][gy] {
