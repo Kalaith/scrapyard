@@ -106,12 +106,30 @@ impl AssetManager {
     }
 
     pub async fn load_assets(&mut self) {
-        // Placeholder: Load a dummy texture or generate one
-        // For now, we rely on procedural drawing, but this is the hook for later.
-        
-        // Example:
-        // let tex = load_texture("assets/ship.png").await.unwrap();
-        // self.textures.insert("ship".to_string(), tex);
+        let textures = vec![
+            "enemy_nanodrone", "enemy_nanoguard", "enemy_leech", "enemy_siege_construct", "enemy_boss",
+            "ship_hull_scavenger",
+            "weapon_turret_base", "weapon_pulse_turret", "weapon_beam_emitter", "weapon_missile_rack",
+            "tile_floor_core", "tile_floor_weapon", "tile_floor_defense", "tile_floor_engine",
+            "tile_floor_utility", "tile_floor_medbay", "tile_floor_cockpit", "tile_floor_storage",
+            "tile_floor_corridor", "tile_wall_tech",
+            "prop_console_wall", "prop_console_desk", "prop_server_rack",
+            "prop_pipe_burst", "prop_engine_valve", "prop_generator_coil",
+            "prop_ammo_loader", "prop_capacitor_bank",
+            "prop_med_scanner", "prop_cryo_pod",
+            "prop_shield_emitter"
+        ];
+
+        for name in textures {
+            let path = format!("assets/{}.png", name);
+            match load_texture(&path).await {
+                Ok(tex) => {
+                    tex.set_filter(FilterMode::Nearest);
+                    self.textures.insert(name.to_string(), tex);
+                },
+                Err(e) => eprintln!("Failed to load texture {}: {}", path, e),
+            }
+        }
     }
 
     pub fn get_texture(&self, name: &str) -> Option<&Texture2D> {

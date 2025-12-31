@@ -9,7 +9,7 @@ mod ui;
 mod data;
 
 use state::GameState;
-use ui::assets::AssetManager;
+// use ui::assets::AssetManager;
 use ui::renderer::Renderer;
 use ui::sound_manager::{SoundManager, SoundEffect};
 use simulation::events::{EventBus, GameEvent};
@@ -18,8 +18,7 @@ use simulation::constants::*;
 #[macroquad::main("Scrapyard Planet")]
 async fn main() {
     let mut game_state = GameState::new();
-    let mut asset_manager = AssetManager::new();
-    asset_manager.load_assets().await;
+    game_state.assets.load_assets().await;
     
     let mut sound_manager = SoundManager::new();
     sound_manager.load_sounds().await;

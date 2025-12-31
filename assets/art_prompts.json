@@ -1,0 +1,188 @@
+[
+    {
+        "filename": "enemy_nanodrone",
+        "prompt": "Top down 2d game sprite, small angular robotic drone, swarm unit, jagged metal shards, glowing red eye, sci-fi RTS style, isolated on black background",
+        "width": 32,
+        "height": 32
+    },
+    {
+        "filename": "enemy_nanoguard",
+        "prompt": "Top down 2d game sprite, medium armored robotic soldier, triangular chassis, heavy plating, dual glowing sensors, sci-fi RTS style, isolated on black background",
+        "width": 48,
+        "height": 48
+    },
+    {
+        "filename": "enemy_leech",
+        "prompt": "Top down 2d game sprite, parasitic mechanical worm, multiple grasping limbs, glowing green energy veins, sci-fi RTS style, isolated on black background",
+        "width": 40,
+        "height": 40
+    },
+    {
+        "filename": "enemy_siege_construct",
+        "prompt": "Top down 2d game sprite, large heavy siege tank robot, blocky industrial design, treaded or multi-legged, massive cannon, heavy weathering, sci-fi RTS style, isolated on black background",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "enemy_boss",
+        "prompt": "Top down 2d game sprite, massive boss nanomachine core, central eye, rotating ring segments, dark metallic with bright energy cracks, terrifying presence, sci-fi RTS style, isolated on black background",
+        "width": 128,
+        "height": 128
+    },
+    {
+        "filename": "ship_hull_scavenger",
+        "prompt": "Top down 2d game asset, spaceship hull, huge industrial scavenger vessel, asymmetrical design, patchwork metal plates, exposed pipes, multiple module slots, rusty and weathered sci-fi aesthetic, isolated on black background",
+        "width": 512,
+        "height": 512
+    },
+    {
+        "filename": "weapon_turret_base",
+        "prompt": "Top down 2d game asset, circular weapon mount, metallic base plate, industrial sci-fi style, isolated on black background",
+        "width": 32,
+        "height": 32
+    },
+    {
+        "filename": "weapon_pulse_turret",
+        "prompt": "Top down 2d game asset, sci-fi turret gun barrel, dual cannons, compact design, fast fire rate look, isolated on black background",
+        "width": 32,
+        "height": 32
+    },
+    {
+        "filename": "weapon_beam_emitter",
+        "prompt": "Top down 2d game asset, sci-fi beam weapon, focusing lens array, long sleek barrel, high tech energy weapon, isolated on black background",
+        "width": 32,
+        "height": 48
+    },
+    {
+        "filename": "weapon_missile_rack",
+        "prompt": "Top down 2d game asset, sci-fi missile launcher pod, boxy design, loaded missile tips visible, industrial military style, isolated on black background",
+        "width": 32,
+        "height": 32
+    },
+    {
+        "filename": "tile_floor_core",
+        "prompt": "Top down 2d game tile, reactor room floor, metallic grating over glowing hazardous energy, warning stripes, seamless texture, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "tile_floor_weapon",
+        "prompt": "Top down 2d game tile, armory floor, heavy steel plating, ammo feeds embedded in floor, militaristic grey and gunmetal, seamless texture, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "tile_floor_defense",
+        "prompt": "Top down 2d game tile, shield generator room floor, hexagonal pattern plates, faint blue energy lines, clean high-tech look, seamless texture, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "tile_floor_engine",
+        "prompt": "Top down 2d game tile, engineering deck, greasy metal plates, exposed pipes and cabling, industrial orange and yellow accents, seamless texture, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "tile_floor_utility",
+        "prompt": "Top down 2d game tile, server room floor, raised floor tiles, cooling vents, blinking data lights, dark tech atmosphere, seamless texture, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "tile_floor_medbay",
+        "prompt": "Top down 2d game tile, medical bay floor, pristine white panels, cyan lighting strips, sterile environment, seamless texture, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "tile_floor_cockpit",
+        "prompt": "Top down 2d game tile, command bridge floor, carpeted or high-quality surfacing, display holograms projected from floor, sleek command style, seamless texture, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "tile_floor_storage",
+        "prompt": "Top down 2d game tile, cargo bay floor, scratched yellow hazard marking area, diamond plate steel, heavy load bearing look, seamless texture, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "tile_floor_corridor",
+        "prompt": "Top down 2d game tile, narrow corridor floor, ribbed metal path, wall junction markers, claustrophobic industrial feel, seamless texture, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "tile_wall_tech",
+        "prompt": "Top down 2d game tile, spaceship wall, modular panels, conduits and pipes running along top, metallic grey, sci-fi pixel art style",
+        "width": 64,
+        "height": 64
+    },
+    {
+        "filename": "prop_console_wall",
+        "prompt": "Top down 2d game asset, wall mounted computer terminal, screen with data readout, keyboard panel, sci-fi interior prop, isolated on black background",
+        "width": 32,
+        "height": 32
+    },
+    {
+        "filename": "prop_console_desk",
+        "prompt": "Top down 2d game asset, freestanding control desk, multiple monitors, operator chair, command center style, sci-fi interior prop, isolated on black background",
+        "width": 48,
+        "height": 32
+    },
+    {
+        "filename": "prop_server_rack",
+        "prompt": "Top down 2d game asset, tall server mainframe tower, blinking status lights, cabling bundles, data center style, sci-fi interior prop, isolated on black background",
+        "width": 32,
+        "height": 64
+    },
+    {
+        "filename": "prop_pipe_burst",
+        "prompt": "Top down 2d game asset, damaged industrial pipe, leaking steam or gas, red warning valve, broken machinery, sci-fi interior prop, isolated on black background",
+        "width": 32,
+        "height": 32
+    },
+    {
+        "filename": "prop_engine_valve",
+        "prompt": "Top down 2d game asset, large manual release valve wheel on machinery block, heavy industrial style, brass or rusty steel, sci-fi interior prop, isolated on black background",
+        "width": 32,
+        "height": 32
+    },
+    {
+        "filename": "prop_generator_coil",
+        "prompt": "Top down 2d game asset, exposed copper induction coil, electromagnetic dynamo, humming with energy, industrial power component, sci-fi interior prop, isolated on black background",
+        "width": 32,
+        "height": 48
+    },
+    {
+        "filename": "prop_ammo_loader",
+        "prompt": "Top down 2d game asset, mechanical ammunition autoloader, conveyor belt with shells, robotic arm loader, military sci-fi prop, isolated on black background",
+        "width": 48,
+        "height": 48
+    },
+    {
+        "filename": "prop_capacitor_bank",
+        "prompt": "Top down 2d game asset, energy capacitor unit, glowing blue power cells, high voltage warning, weapon power system, sci-fi interior prop, isolated on black background",
+        "width": 32,
+        "height": 48
+    },
+    {
+        "filename": "prop_med_scanner",
+        "prompt": "Top down 2d game asset, wall mounted bio-scanner unit, holographic display of vitals, clean white medical equipment, sci-fi interior prop, isolated on black background",
+        "width": 32,
+        "height": 32
+    },
+    {
+        "filename": "prop_cryo_pod",
+        "prompt": "Top down 2d game asset, vertical cryostasis pod, glass front with figure inside, frost details, sci-fi hibernation chamber, isolated on black background",
+        "width": 32,
+        "height": 64
+    },
+    {
+        "filename": "prop_shield_emitter",
+        "prompt": "Top down 2d game asset, shield generator emitter node, glowing field projection, hexagonal base, energy barrier device, sci-fi interior prop, isolated on black background",
+        "width": 48,
+        "height": 48
+    }
+]

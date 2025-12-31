@@ -12,6 +12,7 @@ use crate::enemy::entities::{Enemy, Projectile, Particle, ScrapPile};
 use crate::enemy::wave::WaveState;
 use super::tutorial::{TutorialConfig, TutorialState};
 use crate::data::settings::Settings;
+use crate::ui::assets::AssetManager;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum GamePhase {
@@ -42,6 +43,7 @@ pub struct GameState {
     pub resources: Resources,
     pub phase: GamePhase,
     pub module_registry: ModuleRegistry,
+    pub assets: crate::ui::assets::AssetManager,
     pub view_mode: ViewMode,
     pub player: Player,
     pub total_power: i32,
@@ -86,6 +88,13 @@ impl GameState {
             resources: Resources::new(),
             phase: GamePhase::Menu,
             module_registry: ModuleRegistry::new(),
+            assets: {
+                let mut am = AssetManager::new();
+                // Note: We can't await here easily in new(), so we usually load assets in main
+                // and pass them in, or use a lazy loader. 
+                // For simplicity in this codebase, we'll initialize empty and load in main.
+                am
+            },
             view_mode: ViewMode::Interior,
             player,
             total_power: 0,

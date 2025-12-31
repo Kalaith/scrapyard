@@ -12,7 +12,7 @@ impl Renderer {
         
         match state.view_mode {
             ViewMode::Exterior => {
-                // self.draw_ship_hull(state); // Removed per user request
+                self.draw_ship_hull(state);
                 self.draw_ship_grid(state);
                 self.draw_enemies(state, shake);
                 self.draw_projectiles(state, shake);
@@ -132,11 +132,57 @@ impl Renderer {
     }
     
     fn draw_rooms(&self, state: &GameState, cam_x: f32, cam_y: f32) {
+        let tile_size = 64.0; // Tile size
+        
         for room in &state.interior.rooms {
             let rx = cam_x + room.x;
             let ry = cam_y + room.y;
             
-            draw_rectangle(rx, ry, room.width, room.height, room.color());
+            // Draw floor tiles
+            let floor_tex_name = match room.room_type {
+                RoomType::Module(ModuleType::Core) => "tile_floor_core",
+                RoomType::Module(ModuleType::Weapon) => "tile_floor_weapon",
+                RoomType::Module(ModuleType::Defense) => "tile_floor_defense",
+                RoomType::Module(ModuleType::Engine) => "tile_floor_engine",
+                RoomType::Module(ModuleType::Utility) => "tile_floor_utility",
+                RoomType::Medbay => "tile_floor_medbay",
+                RoomType::Cockpit => "tile_floor_cockpit",
+                RoomType::Storage => "tile_floor_storage",
+                RoomType::Corridor => "tile_floor_corridor",
+                _ => "tile_floor_corridor",
+            };
+
+            if let Some(tex) = state.assets.get_texture(floor_tex_name) {
+                // Tiling: draw texture across the room
+                let cols = (room.width / tile_size).ceil() as i32;
+                let rows = (room.height / tile_size).ceil() as i32;
+                
+                for r in 0..rows {
+                    for c in 0..cols {
+                       draw_texture(tex, rx + c as f32 * tile_size, ry + r as f32 * tile_size, WHITE);
+                    }
+                }
+            } else {
+                 draw_rectangle(rx, ry, room.width, room.height, room.color());
+            }
+            
+            // Draw walls (top edge) using tile_wall_tech if room above is empty? 
+            // Simplified: Just draw walls on the boundaries if desired, but for top-down, usually walls are just drawn.
+            // Let's draw `tile_wall_tech` along the top edge of the room.
+            if let Some(wall_tex) = state.assets.get_texture("tile_wall_tech") {
+                 let cols = (room.width / tile_size).ceil() as i32;
+                 for c in 0..cols {
+                     // Draw wall "above" the room or at the top of the room?
+                     // Usually walls take up space. Here rooms are packed. 
+                     // Let's overlay at the top edge for visual flair.
+                     draw_texture_ex(wall_tex, rx + c as f32 * tile_size, ry - 10.0, WHITE, 
+                        DrawTextureParams {
+                            dest_size: Some(vec2(tile_size, 20.0)), // Squashed wall
+                            ..Default::default()
+                        }
+                    );
+                 }
+            }
             
             // Tutorial highlight
             let is_target = state.tutorial_state.should_highlight(&state.tutorial_config, room.id);
@@ -148,34 +194,54 @@ impl Renderer {
                 draw_rectangle_lines(rx, ry, room.width, room.height, 2.0, color_u8!(70, 70, 80, 255));
             }
             
-            // Repair points
-            for point in &room.repair_points {
+            // Repair points (Props)
+            for (i, point) in room.repair_points.iter().enumerate() {
                 let px = rx + point.x;
                 let py = ry + point.y;
                 let half = REPAIR_POINT_SIZE / 2.0;
                 
-                if point.repaired {
-                    draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(30, 100, 30, 255));
-                    draw_rectangle_lines(px - half, py - half, half * 2.0, half * 2.0, 2.0, GREEN);
+                // Determine prop type based on room
+                let prop_names = match room.room_type {
+                    RoomType::Module(ModuleType::Core) => vec!["prop_generator_coil", "prop_console_desk"],
+                    RoomType::Module(ModuleType::Weapon) => vec!["prop_ammo_loader", "prop_capacitor_bank"],
+                    RoomType::Module(ModuleType::Defense) => vec!["prop_shield_emitter", "prop_console_wall"],
+                    RoomType::Module(ModuleType::Engine) => vec!["prop_engine_valve", "prop_pipe_burst"],
+                    RoomType::Module(ModuleType::Utility) => vec!["prop_server_rack", "prop_console_wall"],
+                    RoomType::Medbay => vec!["prop_med_scanner", "prop_console_wall"], // Removed crypto_pod as it is tall
+                    _ => vec!["prop_console_wall"],
+                };
+                
+                // Pick stable random prop
+                let prop_name = prop_names[(point.id + i) % prop_names.len()];
+                
+                if let Some(tex) = state.assets.get_texture(prop_name) {
+                    let color = if point.repaired { WHITE } else { color_u8!(255, 150, 150, 255) }; // Red tint if broken
+                    let w = tex.width();
+                    let h = tex.height();
+                    
+                    // Center the prop
+                    draw_texture_ex(tex, px - w/2.0, py - h/2.0, color, DrawTextureParams::default());
+                    
+                    if !point.repaired {
+                         // Spark effect or icon
+                         // draw_rectangle_lines(px - w/2.0, py - h/2.0, w, h, 2.0, RED);
+                    }
                 } else {
-                    draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(100, 40, 30, 255));
-                    draw_rectangle_lines(px - half, py - half, half * 2.0, half * 2.0, 2.0, ORANGE);
+                    // Fallback
+                    if point.repaired {
+                        draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(30, 100, 30, 255));
+                    } else {
+                        draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(100, 40, 30, 255));
+                    }
                 }
             }
             
-            // Room name and progress
+            // Room name
             let name = room.name();
             if !name.is_empty() {
                 let text_size = 18.0;
                 let text_w = measure_text(name, None, text_size as u16, 1.0).width;
-                draw_text(name, rx + (room.width - text_w) / 2.0, ry + 24.0, text_size, WHITE);
-                
-                if !room.repair_points.is_empty() {
-                    let progress = format!("{}/{}", room.repaired_count(), room.repair_points.len());
-                    let prog_w = measure_text(&progress, None, 14, 1.0).width;
-                    draw_text(&progress, rx + (room.width - prog_w) / 2.0, ry + 42.0, 14.0, 
-                        if room.is_fully_repaired() { GREEN } else { ORANGE });
-                }
+                 draw_text(name, rx + (room.width - text_w) / 2.0, ry + 24.0, text_size, WHITE);
             }
         }
     }
@@ -255,18 +321,28 @@ impl Renderer {
         draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
     }
 
-    pub fn draw_ship_hull(&self, _state: &GameState) {
-        let total_width = GRID_WIDTH as f32 * CELL_SIZE;
-        let total_height = GRID_HEIGHT as f32 * CELL_SIZE;
-        let start_x = (screen_width() - total_width) / 2.0;
-        let start_y = (screen_height() - total_height) / 2.0;
+    pub fn draw_ship_hull(&self, state: &GameState) {
+        if let Some(tex) = state.assets.get_texture("ship_hull_scavenger") {
+            let total_width = GRID_WIDTH as f32 * CELL_SIZE;
+            let total_height = GRID_HEIGHT as f32 * CELL_SIZE;
+            let start_x = (screen_width() - total_width) / 2.0;
+            let start_y = (screen_height() - total_height) / 2.0;
 
-        draw_rectangle(start_x - 20.0, start_y - 20.0, total_width + 40.0, total_height + 40.0, color_u8!(50, 50, 60, 255));
-        draw_rectangle(start_x - 10.0, start_y - 10.0, total_width + 20.0, total_height + 20.0, color_u8!(30, 30, 40, 255));
-
-        let accent = color_u8!(70, 70, 80, 255);
-        draw_line(start_x - 20.0, start_y - 20.0, start_x + total_width + 20.0, start_y - 20.0, 2.0, accent);
-        draw_line(start_x - 20.0, start_y + total_height + 20.0, start_x + total_width + 20.0, start_y + total_height + 20.0, 2.0, accent);
+            // Draw hull slightly larger than grid and centered
+            let scale_x = (total_width + 100.0) / tex.width();
+            let scale_y = (total_height + 100.0) / tex.height();
+            // Maintain aspect ratio or stretch?
+            // "ship_hull_scavenger" is 512x512.
+            let x = start_x - 50.0;
+            let y = start_y - 50.0;
+            let w = total_width + 100.0;
+            let h = total_height + 100.0;
+            
+            draw_texture_ex(tex, x, y, WHITE, DrawTextureParams {
+                dest_size: Some(vec2(w, h)),
+                ..Default::default()
+            });
+        }
     }
 
     pub fn draw_ship_grid(&self, state: &GameState) {
@@ -384,17 +460,49 @@ impl Renderer {
 
     pub fn draw_enemies(&self, state: &GameState, shake: Vec2) {
         for enemy in &state.enemies {
-            let color = match enemy.enemy_type {
-                crate::enemy::entities::EnemyType::Nanodrone => GREEN,
-                crate::enemy::entities::EnemyType::Nanoguard => YELLOW,
-                crate::enemy::entities::EnemyType::Leech => PURPLE,
-                crate::enemy::entities::EnemyType::SiegeConstruct => DARKGRAY,
-                crate::enemy::entities::EnemyType::Boss => RED,
+            let tex_name = match enemy.enemy_type {
+                crate::enemy::entities::EnemyType::Nanodrone => "enemy_nanodrone",
+                crate::enemy::entities::EnemyType::Nanoguard => "enemy_nanoguard",
+                crate::enemy::entities::EnemyType::Leech => "enemy_leech",
+                crate::enemy::entities::EnemyType::SiegeConstruct => "enemy_siege_construct",
+                crate::enemy::entities::EnemyType::Boss => "enemy_boss",
             };
 
             let ex = enemy.position.x + shake.x;
             let ey = enemy.position.y + shake.y;
-            draw_circle(ex, ey, 8.0, color);
+
+            if let Some(tex) = state.assets.get_texture(tex_name) {
+                let w = tex.width();
+                let h = tex.height();
+                
+                // Rotation towards ship center if applicable, or just 0 for top-down sprites?
+                // Most sprites face UP or RIGHT by default.
+                // Assuming sprites face UP.
+                let rotation = if let Some((gx, gy)) = enemy.target_module {
+                    // Face target
+                   // (Calculate angle)
+                    0.0
+                } else {
+                     0.0
+                };
+                
+                // Draw sprite centered
+                draw_texture_ex(tex, ex - w / 2.0, ey - h / 2.0, WHITE, DrawTextureParams {
+                    rotation,
+                    pivot: None, // pivot at center by default for rotation? No, pivot is absolute.
+                    ..Default::default()
+                });
+            } else {
+                // Fallback
+                let color = match enemy.enemy_type {
+                    crate::enemy::entities::EnemyType::Nanodrone => GREEN,
+                    crate::enemy::entities::EnemyType::Nanoguard => YELLOW,
+                    crate::enemy::entities::EnemyType::Leech => PURPLE,
+                    crate::enemy::entities::EnemyType::SiegeConstruct => DARKGRAY,
+                    crate::enemy::entities::EnemyType::Boss => RED,
+                };
+                 draw_circle(ex, ey, 8.0, color);
+            }
 
             if enemy.health < enemy.max_health {
                 let bar_width = 20.0;
