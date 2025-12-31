@@ -98,7 +98,7 @@ impl Renderer {
         (continue_bounds, new_game_bounds)
     }
 
-    #[allow(dead_code)]
+    
     pub fn get_start_button_bounds(&self) -> (f32, f32, f32, f32) {
         let (_, new_game) = self.get_menu_button_bounds();
         new_game

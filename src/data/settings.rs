@@ -29,7 +29,7 @@ impl Default for Settings {
     }
 }
 
-#[allow(dead_code)]
+
 impl Settings {
     pub fn new() -> Self {
         Self::default()

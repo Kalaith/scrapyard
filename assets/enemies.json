@@ -1,0 +1,78 @@
+{
+    "enemies": {
+        "nanodrone": {
+            "name": "Nanodrone",
+            "hp": 10.0,
+            "speed": 100.0,
+            "damage": 5.0,
+            "hit_radius": 10.0,
+            "color": [
+                255,
+                100,
+                100,
+                255
+            ]
+        },
+        "nanoguard": {
+            "name": "Nanoguard",
+            "hp": 50.0,
+            "speed": 40.0,
+            "damage": 15.0,
+            "hit_radius": 15.0,
+            "color": [
+                200,
+                50,
+                50,
+                255
+            ]
+        },
+        "leech": {
+            "name": "Leech",
+            "hp": 30.0,
+            "speed": 60.0,
+            "damage": 2.0,
+            "hit_radius": 12.0,
+            "power_drain": 1,
+            "color": [
+                100,
+                200,
+                100,
+                255
+            ]
+        },
+        "siege_construct": {
+            "name": "Siege Construct",
+            "hp": 200.0,
+            "speed": 15.0,
+            "damage": 30.0,
+            "hit_radius": 25.0,
+            "color": [
+                150,
+                150,
+                200,
+                255
+            ]
+        },
+        "boss": {
+            "name": "Core Eater",
+            "hp": 1000.0,
+            "speed": 20.0,
+            "damage": 50.0,
+            "hit_radius": 40.0,
+            "ability_cooldown": 8.0,
+            "split_count": 3,
+            "color": [
+                255,
+                50,
+                255,
+                255
+            ]
+        }
+    },
+    "spawn_rules": {
+        "grace_power": 10,
+        "tier1_power": 16,
+        "tier2_power": 24,
+        "tier3_power": 40
+    }
+}

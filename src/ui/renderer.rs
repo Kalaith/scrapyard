@@ -34,8 +34,8 @@ impl Renderer {
         }
 
         let shake = self.trauma * self.trauma;
-        let offset_x = (rand::gen_range(-1.0, 1.0) * self.shake_intensity * shake);
-        let offset_y = (rand::gen_range(-1.0, 1.0) * self.shake_intensity * shake);
+        let offset_x = macroquad::rand::gen_range(-1.0, 1.0) * self.shake_intensity * shake;
+        let offset_y = macroquad::rand::gen_range(-1.0, 1.0) * self.shake_intensity * shake;
 
         vec2(offset_x, offset_y)
     }

@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 use crate::state::{GameState, EngineState};
-use crate::enemy::entities::{Enemy, EnemyType, ScrapPile};
+use crate::enemy::entities::{Enemy, EnemyType};
 use crate::simulation::constants::*;
 use crate::ship::ship::{ModuleType, ModuleState, Ship};
 use crate::simulation::events::{EventBus, GameEvent};
@@ -95,20 +95,7 @@ fn generate_enemy_id(enemy_count: usize, frame_count: u64) -> u64 {
     enemy_count as u64 + frame_count
 }
 
-pub fn spawn_scrap_piles(state: &mut GameState) {
-    let interior = &state.interior;
-    
-    // Initial scrap piles
-    let count = rand::gen_range(MIN_SCRAP_PILES, MAX_SCRAP_PILES + 1);
-    for _ in 0..count {
-        let pos = vec2(
-            rand::gen_range(SCRAP_SPAWN_PADDING, interior.width - SCRAP_SPAWN_PADDING),
-            rand::gen_range(SCRAP_SPAWN_PADDING, interior.height - SCRAP_SPAWN_PADDING)
-        );
-        let amount = rand::gen_range(SCRAP_PILE_MIN_AMOUNT, SCRAP_PILE_MAX_AMOUNT + 1);
-        state.scrap_piles.push(ScrapPile::new(pos, amount));
-    }
-}
+// Note: spawn_scrap_piles was moved to GameState::spawn_scrap_piles() for better room-aware placement
 
 pub fn update_enemies(state: &mut GameState, dt: f32) {
     // Calculate core position from grid

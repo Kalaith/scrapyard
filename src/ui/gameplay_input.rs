@@ -202,7 +202,7 @@ impl InputManager {
         }
     }
 
-    #[allow(dead_code)]
+    
     pub fn handle_grid_click(&self, x: usize, y: usize, state: &GameState, events: &mut EventBus) {
         if let Some(module) = &state.ship.grid[x][y] {
             match module.state {

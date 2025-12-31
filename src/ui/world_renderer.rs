@@ -91,13 +91,21 @@ impl Renderer {
         // Background (void)
         draw_rectangle(0.0, 0.0, screen_width(), screen_height(), color_u8!(10, 10, 15, 255));
         
-        // Draw rooms
-        for room in &interior.rooms {
+        // Draw all interior elements
+        self.draw_rooms(state, cam_x, cam_y);
+        self.draw_player(state, cam_x, cam_y);
+        self.draw_scrap_piles(state, cam_x, cam_y);
+        self.draw_repair_prompt(state, cam_x, cam_y);
+    }
+    
+    fn draw_rooms(&self, state: &GameState, cam_x: f32, cam_y: f32) {
+        for room in &state.interior.rooms {
             let rx = cam_x + room.x;
             let ry = cam_y + room.y;
             
             draw_rectangle(rx, ry, room.width, room.height, room.color());
             
+            // Tutorial highlight
             let is_target = state.tutorial_state.should_highlight(&state.tutorial_config, room.id);
             if is_target && !room.is_fully_repaired() {
                 let pulse = ((state.frame_count as f32 * 0.1).sin() * 0.5 + 0.5) * 155.0 + 100.0;
@@ -107,6 +115,7 @@ impl Renderer {
                 draw_rectangle_lines(rx, ry, room.width, room.height, 2.0, color_u8!(70, 70, 80, 255));
             }
             
+            // Repair points
             for point in &room.repair_points {
                 let px = rx + point.x;
                 let py = ry + point.y;
@@ -121,6 +130,7 @@ impl Renderer {
                 }
             }
             
+            // Room name and progress
             let name = room.name();
             if !name.is_empty() {
                 let text_size = 18.0;
@@ -135,8 +145,9 @@ impl Renderer {
                 }
             }
         }
-        
-        // Draw player
+    }
+    
+    fn draw_player(&self, state: &GameState, cam_x: f32, cam_y: f32) {
         let player_screen_x = cam_x + state.player.position.x;
         let player_screen_y = cam_y + state.player.position.y;
         
@@ -146,7 +157,20 @@ impl Renderer {
         let facing_end = vec2(player_screen_x, player_screen_y) + state.player.facing * state.player.size;
         draw_line(player_screen_x, player_screen_y, facing_end.x, facing_end.y, 2.0, WHITE);
         
-        // Draw scrap piles (always visible regardless of player's room)
+        // Gathering progress bar
+        if state.gathering_target.is_some() && state.gathering_timer > 0.0 {
+            let progress = (state.gathering_timer / GATHERING_TIME_SECONDS).clamp(0.0, 1.0);
+            let bar_w = 40.0;
+            let bar_h = 6.0;
+            let px = player_screen_x - bar_w / 2.0;
+            let py = player_screen_y - 30.0;
+            
+            draw_rectangle(px, py, bar_w, bar_h, BLACK);
+            draw_rectangle(px, py, bar_w * progress, bar_h, GREEN);
+        }
+    }
+    
+    fn draw_scrap_piles(&self, state: &GameState, cam_x: f32, cam_y: f32) {
         for pile in &state.scrap_piles {
             if !pile.active { continue; }
             let screen_pos_x = cam_x + pile.position.x;
@@ -158,56 +182,44 @@ impl Renderer {
             if pile.position.distance(state.player.position) < INTERACTION_RANGE {
                 draw_circle_lines(screen_pos_x, screen_pos_y, 12.0, 2.0, YELLOW);
                 if state.gathering_target.is_none() {
-                     draw_text("[Hold E] Scavenge", screen_pos_x - 40.0, screen_pos_y - 15.0, 16.0, WHITE);
+                    draw_text("[Hold E] Scavenge", screen_pos_x - 40.0, screen_pos_y - 15.0, 16.0, WHITE);
                 }
             }
         }
+    }
+    
+    fn draw_repair_prompt(&self, state: &GameState, cam_x: f32, cam_y: f32) {
+        let interior = &state.interior;
+        let Some(room) = interior.room_at(state.player.position) else { return };
+        let Some(point_idx) = room.repair_point_at(state.player.position) else { return };
+        if room.repair_points[point_idx].repaired { return; }
         
-        // Draw gathering progress bar
-        if let Some(_) = state.gathering_target {
-            if state.gathering_timer > 0.0 {
-                let progress = (state.gathering_timer / GATHERING_TIME_SECONDS).clamp(0.0, 1.0);
-                let bar_w = 40.0;
-                let bar_h = 6.0;
-                let px = player_screen_x - bar_w / 2.0;
-                let py = player_screen_y - 30.0;
-                
-                draw_rectangle(px, py, bar_w, bar_h, BLACK);
-                draw_rectangle(px, py, bar_w * progress, bar_h, GREEN);
-            }
-        }
-
-        // Draw repair point UI (only when player is near repair points)
-        if let Some(room) = interior.room_at(state.player.position) {
-            if let Some(point_idx) = room.repair_point_at(state.player.position) {
-                if !room.repair_points[point_idx].repaired {
-                    if let Some(room_idx) = interior.rooms.iter().position(|r| r.id == room.id) {
-                        if let Some((scrap_cost, power_cost)) = state.get_repair_cost(room_idx, point_idx) {
-                            let is_reactor = power_cost == 0;
-                            let can_afford_scrap = state.resources.scrap >= scrap_cost;
-                            let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
-                            
-                            let cost_text = if is_reactor {
-                                format!("{scrap_cost} Scrap")
-                            } else {
-                                format!("{scrap_cost} Scrap + {power_cost} Power")
-                            };
-                            
-                            let label = if can_afford_scrap && can_afford_power {
-                                format!("[E] Repair ({})", cost_text)
-                            } else if !can_afford_scrap {
-                                format!("Need {scrap_cost} Scrap")
-                            } else {
-                                format!("Need {power_cost} Power (Repair Reactor)")
-                            };
-                            
-                            let color = if can_afford_scrap && can_afford_power { YELLOW } else { RED };
-                            draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
-                        }
-                    }
-                }
-            }
-        }
+        let Some(room_idx) = interior.rooms.iter().position(|r| r.id == room.id) else { return };
+        let Some((scrap_cost, power_cost)) = state.get_repair_cost(room_idx, point_idx) else { return };
+        
+        let player_screen_x = cam_x + state.player.position.x;
+        let player_screen_y = cam_y + state.player.position.y;
+        
+        let is_reactor = power_cost == 0;
+        let can_afford_scrap = state.resources.scrap >= scrap_cost;
+        let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
+        
+        let cost_text = if is_reactor {
+            format!("{scrap_cost} Scrap")
+        } else {
+            format!("{scrap_cost} Scrap + {power_cost} Power")
+        };
+        
+        let label = if can_afford_scrap && can_afford_power {
+            format!("[E] Repair ({})", cost_text)
+        } else if !can_afford_scrap {
+            format!("Need {scrap_cost} Scrap")
+        } else {
+            format!("Need {power_cost} Power (Repair Reactor)")
+        };
+        
+        let color = if can_afford_scrap && can_afford_power { YELLOW } else { RED };
+        draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
     }
 
     pub fn draw_ship_hull(&self, _state: &GameState) {

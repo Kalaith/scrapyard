@@ -4,7 +4,7 @@ use crate::simulation::events::EventBus;
 
 /// Captures current input state for the frame
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
+
 pub struct InputState {
     pub mouse_pos: Vec2,
     pub mouse_world_pos: Option<(usize, usize)>,
