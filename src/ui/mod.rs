@@ -1,9 +1,9 @@
 pub mod assets;
+pub mod gameplay_input;
+pub mod input_manager;
+pub mod pause_menu;
 pub mod renderer;
+pub mod sound_manager;
+pub mod ui_input;
 pub mod ui_renderer;
 pub mod world_renderer;
-pub mod input_manager;
-pub mod ui_input;
-pub mod gameplay_input;
-pub mod pause_menu;
-pub mod sound_manager;

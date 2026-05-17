@@ -1,15 +1,15 @@
-use macroquad::prelude::*;
-use crate::state::{GameState, ViewMode};
+use crate::ship::interior::{RoomType, REPAIR_POINT_SIZE};
+use crate::ship::ship::{Module, ModuleState, ModuleType};
 use crate::simulation::constants::*;
-use crate::ship::ship::{ModuleType, ModuleState, Module};
-use crate::ship::interior::{REPAIR_POINT_SIZE, RoomType};
+use crate::state::{GameState, ViewMode};
 use crate::ui::renderer::Renderer;
+use macroquad::prelude::*;
 
 impl Renderer {
     pub fn draw_gameplay(&self, state: &GameState) {
         // Get screen shake offset for trauma feedback
         let shake = self.get_shake_offset();
-        
+
         match state.view_mode {
             ViewMode::Exterior => {
                 self.draw_ship_hull(state);
@@ -22,50 +22,80 @@ impl Renderer {
                 self.draw_interior(state);
             }
         }
-        
+
         // Draw HUD with stats (always visible)
         self.draw_hud(state);
-        
+
         // View mode indicator
         let mode_text = match state.view_mode {
             ViewMode::Exterior => "EXTERIOR [Tab]",
             ViewMode::Interior => "INTERIOR [Tab]",
         };
-        draw_text(mode_text, screen_width() - 150.0, screen_height() - 20.0, 18.0, GRAY);
-        
+        draw_text(
+            mode_text,
+            screen_width() - 150.0,
+            screen_height() - 20.0,
+            18.0,
+            GRAY,
+        );
+
         // Tutorial overlay
         if !state.tutorial_state.is_complete() {
             self.draw_tutorial(state);
         }
     }
-    
+
     fn draw_hud(&self, state: &GameState) {
         // HUD background bar at top
         draw_rectangle(0.0, 0.0, screen_width(), 35.0, color_u8!(0, 0, 0, 180));
-        
+
         // Power info
         // Power info
-        let max_power: i32 = state.interior.rooms.iter()
-            .filter(|r| matches!(r.room_type, crate::ship::interior::RoomType::Module(ModuleType::Core)))
+        let max_power: i32 = state
+            .interior
+            .rooms
+            .iter()
+            .filter(|r| {
+                matches!(
+                    r.room_type,
+                    crate::ship::interior::RoomType::Module(ModuleType::Core)
+                )
+            })
             .map(|r| r.repair_points.len() as i32 * POWER_PER_CORE_POINT)
             .sum();
 
-        let power_color = if state.used_power <= state.total_power { GREEN } else { RED };
-        let power_text = format!("Power: {}/{} [{}]", state.used_power, state.total_power, max_power);
+        let power_color = if state.used_power <= state.total_power {
+            GREEN
+        } else {
+            RED
+        };
+        let power_text = format!(
+            "Power: {}/{} [{}]",
+            state.used_power, state.total_power, max_power
+        );
         draw_text(&power_text, 20.0, 24.0, 20.0, power_color);
-        
+
         // Scrap
         let scrap_text = format!("Scrap: {}", state.resources.scrap);
         draw_text(&scrap_text, 180.0, 24.0, 20.0, ORANGE);
-        
+
         // Credits
         let credits_text = format!("Credits: {}", state.resources.credits);
         draw_text(&credits_text, 320.0, 24.0, 20.0, YELLOW);
-        
+
         // Ship integrity
         let hp_pct = state.ship_integrity / state.ship_max_integrity;
-        let hp_color = if hp_pct > 0.6 { GREEN } else if hp_pct > 0.3 { YELLOW } else { RED };
-        let hp_text = format!("Hull: {:.0}/{:.0}", state.ship_integrity, state.ship_max_integrity);
+        let hp_color = if hp_pct > 0.6 {
+            GREEN
+        } else if hp_pct > 0.3 {
+            YELLOW
+        } else {
+            RED
+        };
+        let hp_text = format!(
+            "Hull: {:.0}/{:.0}",
+            state.ship_integrity, state.ship_max_integrity
+        );
         draw_text(&hp_text, 480.0, 24.0, 20.0, hp_color);
 
         // Engine Status
@@ -76,25 +106,30 @@ impl Renderer {
         } else if state.engine_stress >= STRESS_THRESHOLD_STRAINED {
             ("ENGINE: STRAINED", YELLOW)
         } else {
-             if state.engine_stress > 0.0 {
-                 ("ENGINE: WARM", GREEN)
-             } else {
-                 ("ENGINE: STABLE", BLUE)
-             }
+            if state.engine_stress > 0.0 {
+                ("ENGINE: WARM", GREEN)
+            } else {
+                ("ENGINE: STABLE", BLUE)
+            }
         };
         // Shake text if critical
-        let (dx, dy) = if state.engine_stress >= STRESS_THRESHOLD_CRITICAL { 
-             (macroquad::rand::gen_range(-2.0, 2.0), macroquad::rand::gen_range(-2.0, 2.0))
-        } else { (0.0, 0.0) };
+        let (dx, dy) = if state.engine_stress >= STRESS_THRESHOLD_CRITICAL {
+            (
+                macroquad::rand::gen_range(-2.0, 2.0),
+                macroquad::rand::gen_range(-2.0, 2.0),
+            )
+        } else {
+            (0.0, 0.0)
+        };
         draw_text(stress_text, 680.0 + dx, 24.0 + dy, 20.0, stress_color);
-        
+
         // Nanite Alert
         let alert_x = 900.0;
         draw_text("Alert:", alert_x, 24.0, 20.0, WHITE);
         draw_rectangle(alert_x + 60.0, 10.0, 100.0, 14.0, DARKGRAY);
         let alert_pct = (state.nanite_alert / 50.0).clamp(0.0, 1.0);
         draw_rectangle(alert_x + 60.0, 10.0, 100.0 * alert_pct, 14.0, RED);
-        
+
         // Engine/Escape timer (if charging)
         if state.engine_state == crate::state::EngineState::Charging {
             let mins = (state.escape_timer / 60.0).floor() as i32;
@@ -106,7 +141,7 @@ impl Renderer {
 
     pub fn draw_interior(&self, state: &GameState) {
         let interior = &state.interior;
-        
+
         // Camera offset to center on player
         let cam_x = if interior.width < screen_width() {
             (screen_width() - interior.width) / 2.0
@@ -120,24 +155,30 @@ impl Renderer {
             (screen_height() / 2.0 - state.player.position.y)
                 .clamp(screen_height() - interior.height, 0.0)
         };
-        
+
         // Background (void)
-        draw_rectangle(0.0, 0.0, screen_width(), screen_height(), color_u8!(10, 10, 15, 255));
-        
+        draw_rectangle(
+            0.0,
+            0.0,
+            screen_width(),
+            screen_height(),
+            color_u8!(10, 10, 15, 255),
+        );
+
         // Draw all interior elements
         self.draw_rooms(state, cam_x, cam_y);
         self.draw_player(state, cam_x, cam_y);
         self.draw_scrap_piles(state, cam_x, cam_y);
         self.draw_repair_prompt(state, cam_x, cam_y);
     }
-    
+
     fn draw_rooms(&self, state: &GameState, cam_x: f32, cam_y: f32) {
         let tile_size = 64.0; // Tile size
-        
+
         for room in &state.interior.rooms {
             let rx = cam_x + room.x;
             let ry = cam_y + room.y;
-            
+
             // Draw floor tiles
             let floor_tex_name = match room.room_type {
                 RoomType::Module(ModuleType::Core) => "tile_floor_core",
@@ -156,106 +197,187 @@ impl Renderer {
                 // Tiling: draw texture across the room
                 let cols = (room.width / tile_size).ceil() as i32;
                 let rows = (room.height / tile_size).ceil() as i32;
-                
+
                 for r in 0..rows {
                     for c in 0..cols {
-                       draw_texture(tex, rx + c as f32 * tile_size, ry + r as f32 * tile_size, WHITE);
+                        draw_texture(
+                            tex,
+                            rx + c as f32 * tile_size,
+                            ry + r as f32 * tile_size,
+                            WHITE,
+                        );
                     }
                 }
             } else {
-                 draw_rectangle(rx, ry, room.width, room.height, room.color());
+                draw_rectangle(rx, ry, room.width, room.height, room.color());
             }
-            
-            // Draw walls (top edge) using tile_wall_tech if room above is empty? 
+
+            // Draw walls (top edge) using tile_wall_tech if room above is empty?
             // Simplified: Just draw walls on the boundaries if desired, but for top-down, usually walls are just drawn.
             // Let's draw `tile_wall_tech` along the top edge of the room.
             if let Some(wall_tex) = state.assets.get_texture("tile_wall_tech") {
-                 let cols = (room.width / tile_size).ceil() as i32;
-                 for c in 0..cols {
-                     // Draw wall "above" the room or at the top of the room?
-                     // Usually walls take up space. Here rooms are packed. 
-                     // Let's overlay at the top edge for visual flair.
-                     draw_texture_ex(wall_tex, rx + c as f32 * tile_size, ry - 10.0, WHITE, 
+                let cols = (room.width / tile_size).ceil() as i32;
+                for c in 0..cols {
+                    // Draw wall "above" the room or at the top of the room?
+                    // Usually walls take up space. Here rooms are packed.
+                    // Let's overlay at the top edge for visual flair.
+                    draw_texture_ex(
+                        wall_tex,
+                        rx + c as f32 * tile_size,
+                        ry - 10.0,
+                        WHITE,
                         DrawTextureParams {
                             dest_size: Some(vec2(tile_size, 20.0)), // Squashed wall
                             ..Default::default()
-                        }
+                        },
                     );
-                 }
+                }
             }
-            
+
             // Tutorial highlight
-            let is_target = state.tutorial_state.should_highlight(&state.tutorial_config, room.id);
+            let is_target = state
+                .tutorial_state
+                .should_highlight(&state.tutorial_config, room.id);
             if is_target && !room.is_fully_repaired() {
                 let pulse = ((state.frame_count as f32 * 0.1).sin() * 0.5 + 0.5) * 155.0 + 100.0;
-                draw_rectangle_lines(rx - 2.0, ry - 2.0, room.width + 4.0, room.height + 4.0, 4.0, 
-                    Color::new(1.0, 1.0, 0.0, pulse / 255.0));
+                draw_rectangle_lines(
+                    rx - 2.0,
+                    ry - 2.0,
+                    room.width + 4.0,
+                    room.height + 4.0,
+                    4.0,
+                    Color::new(1.0, 1.0, 0.0, pulse / 255.0),
+                );
             } else {
-                draw_rectangle_lines(rx, ry, room.width, room.height, 2.0, color_u8!(70, 70, 80, 255));
+                draw_rectangle_lines(
+                    rx,
+                    ry,
+                    room.width,
+                    room.height,
+                    2.0,
+                    color_u8!(70, 70, 80, 255),
+                );
             }
-            
+
             // Repair points (Props)
             for (i, point) in room.repair_points.iter().enumerate() {
                 let px = rx + point.x;
                 let py = ry + point.y;
                 let half = REPAIR_POINT_SIZE / 2.0;
-                
+
                 // Determine prop type based on room
                 let prop_names = match room.room_type {
-                    RoomType::Module(ModuleType::Core) => vec!["prop_generator_coil", "prop_console_desk"],
-                    RoomType::Module(ModuleType::Weapon) => vec!["prop_ammo_loader", "prop_capacitor_bank"],
-                    RoomType::Module(ModuleType::Defense) => vec!["prop_shield_emitter", "prop_console_wall"],
-                    RoomType::Module(ModuleType::Engine) => vec!["prop_engine_valve", "prop_pipe_burst"],
-                    RoomType::Module(ModuleType::Utility) => vec!["prop_server_rack", "prop_console_wall"],
+                    RoomType::Module(ModuleType::Core) => {
+                        vec!["prop_generator_coil", "prop_console_desk"]
+                    }
+                    RoomType::Module(ModuleType::Weapon) => {
+                        vec!["prop_ammo_loader", "prop_capacitor_bank"]
+                    }
+                    RoomType::Module(ModuleType::Defense) => {
+                        vec!["prop_shield_emitter", "prop_console_wall"]
+                    }
+                    RoomType::Module(ModuleType::Engine) => {
+                        vec!["prop_engine_valve", "prop_pipe_burst"]
+                    }
+                    RoomType::Module(ModuleType::Utility) => {
+                        vec!["prop_server_rack", "prop_console_wall"]
+                    }
                     RoomType::Medbay => vec!["prop_med_scanner", "prop_console_wall"], // Removed crypto_pod as it is tall
                     _ => vec!["prop_console_wall"],
                 };
-                
+
                 // Pick stable random prop
                 let prop_name = prop_names[(point.id + i) % prop_names.len()];
-                
+
                 if let Some(tex) = state.assets.get_texture(prop_name) {
-                    let color = if point.repaired { WHITE } else { color_u8!(255, 150, 150, 255) }; // Red tint if broken
+                    let color = if point.repaired {
+                        WHITE
+                    } else {
+                        color_u8!(255, 150, 150, 255)
+                    }; // Red tint if broken
                     let w = tex.width();
                     let h = tex.height();
-                    
+
                     // Center the prop
-                    draw_texture_ex(tex, px - w/2.0, py - h/2.0, color, DrawTextureParams::default());
-                    
+                    draw_texture_ex(
+                        tex,
+                        px - w / 2.0,
+                        py - h / 2.0,
+                        color,
+                        DrawTextureParams::default(),
+                    );
+
                     if !point.repaired {
-                         // Spark effect or icon
-                         // draw_rectangle_lines(px - w/2.0, py - h/2.0, w, h, 2.0, RED);
+                        // Spark effect or icon
+                        // draw_rectangle_lines(px - w/2.0, py - h/2.0, w, h, 2.0, RED);
                     }
                 } else {
                     // Fallback
                     if point.repaired {
-                        draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(30, 100, 30, 255));
+                        draw_rectangle(
+                            px - half,
+                            py - half,
+                            half * 2.0,
+                            half * 2.0,
+                            color_u8!(30, 100, 30, 255),
+                        );
                     } else {
-                        draw_rectangle(px - half, py - half, half * 2.0, half * 2.0, color_u8!(100, 40, 30, 255));
+                        draw_rectangle(
+                            px - half,
+                            py - half,
+                            half * 2.0,
+                            half * 2.0,
+                            color_u8!(100, 40, 30, 255),
+                        );
                     }
                 }
             }
-            
+
             // Room name
             let name = room.name();
             if !name.is_empty() {
                 let text_size = 18.0;
                 let text_w = measure_text(name, None, text_size as u16, 1.0).width;
-                 draw_text(name, rx + (room.width - text_w) / 2.0, ry + 24.0, text_size, WHITE);
+                draw_text(
+                    name,
+                    rx + (room.width - text_w) / 2.0,
+                    ry + 24.0,
+                    text_size,
+                    WHITE,
+                );
             }
         }
     }
-    
+
     fn draw_player(&self, state: &GameState, cam_x: f32, cam_y: f32) {
         let player_screen_x = cam_x + state.player.position.x;
         let player_screen_y = cam_y + state.player.position.y;
-        
-        draw_circle(player_screen_x, player_screen_y, state.player.size, color_u8!(100, 200, 255, 255));
-        draw_circle_lines(player_screen_x, player_screen_y, state.player.size, 2.0, WHITE);
-        
-        let facing_end = vec2(player_screen_x, player_screen_y) + state.player.facing * state.player.size;
-        draw_line(player_screen_x, player_screen_y, facing_end.x, facing_end.y, 2.0, WHITE);
-        
+
+        draw_circle(
+            player_screen_x,
+            player_screen_y,
+            state.player.size,
+            color_u8!(100, 200, 255, 255),
+        );
+        draw_circle_lines(
+            player_screen_x,
+            player_screen_y,
+            state.player.size,
+            2.0,
+            WHITE,
+        );
+
+        let facing_end =
+            vec2(player_screen_x, player_screen_y) + state.player.facing * state.player.size;
+        draw_line(
+            player_screen_x,
+            player_screen_y,
+            facing_end.x,
+            facing_end.y,
+            2.0,
+            WHITE,
+        );
+
         // Gathering progress bar
         if state.gathering_target.is_some() && state.gathering_timer > 0.0 {
             let progress = (state.gathering_timer / GATHERING_TIME_SECONDS).clamp(0.0, 1.0);
@@ -263,52 +385,70 @@ impl Renderer {
             let bar_h = 6.0;
             let px = player_screen_x - bar_w / 2.0;
             let py = player_screen_y - 30.0;
-            
+
             draw_rectangle(px, py, bar_w, bar_h, BLACK);
             draw_rectangle(px, py, bar_w * progress, bar_h, GREEN);
         }
     }
-    
+
     fn draw_scrap_piles(&self, state: &GameState, cam_x: f32, cam_y: f32) {
         for pile in &state.scrap_piles {
-            if !pile.active { continue; }
+            if !pile.active {
+                continue;
+            }
             let screen_pos_x = cam_x + pile.position.x;
             let screen_pos_y = cam_y + pile.position.y;
-            
+
             draw_circle(screen_pos_x, screen_pos_y, 8.0, BROWN);
             draw_circle(screen_pos_x, screen_pos_y, 6.0, DARKBROWN);
-            
+
             if pile.position.distance(state.player.position) < INTERACTION_RANGE {
                 draw_circle_lines(screen_pos_x, screen_pos_y, 12.0, 2.0, YELLOW);
                 if state.gathering_target.is_none() {
-                    draw_text("[Hold E] Scavenge", screen_pos_x - 40.0, screen_pos_y - 15.0, 16.0, WHITE);
+                    draw_text(
+                        "[Hold E] Scavenge",
+                        screen_pos_x - 40.0,
+                        screen_pos_y - 15.0,
+                        16.0,
+                        WHITE,
+                    );
                 }
             }
         }
     }
-    
+
     fn draw_repair_prompt(&self, state: &GameState, cam_x: f32, cam_y: f32) {
         let interior = &state.interior;
-        let Some(room) = interior.room_at(state.player.position) else { return };
-        let Some(point_idx) = room.repair_point_at(state.player.position) else { return };
-        if room.repair_points[point_idx].repaired { return; }
-        
-        let Some(room_idx) = interior.rooms.iter().position(|r| r.id == room.id) else { return };
-        let Some((scrap_cost, power_cost)) = state.get_repair_cost(room_idx, point_idx) else { return };
-        
+        let Some(room) = interior.room_at(state.player.position) else {
+            return;
+        };
+        let Some(point_idx) = room.repair_point_at(state.player.position) else {
+            return;
+        };
+        if room.repair_points[point_idx].repaired {
+            return;
+        }
+
+        let Some(room_idx) = interior.rooms.iter().position(|r| r.id == room.id) else {
+            return;
+        };
+        let Some((scrap_cost, power_cost)) = state.get_repair_cost(room_idx, point_idx) else {
+            return;
+        };
+
         let player_screen_x = cam_x + state.player.position.x;
         let player_screen_y = cam_y + state.player.position.y;
-        
+
         let is_reactor = power_cost == 0;
         let can_afford_scrap = state.resources.scrap >= scrap_cost;
         let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
-        
+
         let cost_text = if is_reactor {
             format!("{scrap_cost} Scrap")
         } else {
             format!("{scrap_cost} Scrap + {power_cost} Power")
         };
-        
+
         let label = if can_afford_scrap && can_afford_power {
             format!("[E] Repair ({})", cost_text)
         } else if !can_afford_scrap {
@@ -316,9 +456,19 @@ impl Renderer {
         } else {
             format!("Need {power_cost} Power (Repair Reactor)")
         };
-        
-        let color = if can_afford_scrap && can_afford_power { YELLOW } else { RED };
-        draw_text(&label, player_screen_x - 60.0, player_screen_y - 20.0, 16.0, color);
+
+        let color = if can_afford_scrap && can_afford_power {
+            YELLOW
+        } else {
+            RED
+        };
+        draw_text(
+            &label,
+            player_screen_x - 60.0,
+            player_screen_y - 20.0,
+            16.0,
+            color,
+        );
     }
 
     pub fn draw_ship_hull(&self, state: &GameState) {
@@ -329,19 +479,25 @@ impl Renderer {
             let start_y = (screen_height() - total_height) / 2.0;
 
             // Draw hull slightly larger than grid and centered
-            let scale_x = (total_width + 100.0) / tex.width();
-            let scale_y = (total_height + 100.0) / tex.height();
+            let _scale_x = (total_width + 100.0) / tex.width();
+            let _scale_y = (total_height + 100.0) / tex.height();
             // Maintain aspect ratio or stretch?
             // "ship_hull_scavenger" is 512x512.
             let x = start_x - 50.0;
             let y = start_y - 50.0;
             let w = total_width + 100.0;
             let h = total_height + 100.0;
-            
-            draw_texture_ex(tex, x, y, WHITE, DrawTextureParams {
-                dest_size: Some(vec2(w, h)),
-                ..Default::default()
-            });
+
+            draw_texture_ex(
+                tex,
+                x,
+                y,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(vec2(w, h)),
+                    ..Default::default()
+                },
+            );
         }
     }
 
@@ -350,8 +506,6 @@ impl Renderer {
         let total_height = GRID_HEIGHT as f32 * CELL_SIZE;
         let start_x = (screen_width() - total_width) / 2.0;
         let start_y = (screen_height() - total_height) / 2.0;
-
-
 
         for x in 0..GRID_WIDTH {
             for y in 0..GRID_HEIGHT {
@@ -368,14 +522,14 @@ impl Renderer {
                 }
             }
         }
-        
+
         // Draw weapon ranges OVER grid
         self.draw_weapon_ranges(state, start_x, start_y);
     }
 
     fn draw_weapon_ranges(&self, state: &GameState, start_x: f32, start_y: f32) {
         let base_range = state.module_registry.get(ModuleType::Weapon).range;
-        
+
         for room in &state.interior.rooms {
             if room.room_type == RoomType::Module(ModuleType::Weapon) {
                 if !room.repair_points.is_empty() {
@@ -383,42 +537,48 @@ impl Renderer {
                     if repaired > 0 {
                         let repair_pct = repaired as f32 / room.repair_points.len() as f32;
                         let effective_range = base_range * (0.5 + 0.5 * repair_pct);
-                        
+
                         if let Some((gx, gy)) = room.module_index {
-                             // Locate module center on screen
-                             // Since we don't have Layout::grid_to_screen_center easily here without offsets,
-                             // we calculate it using start_x/y
-                             // Note: We need width/height of module to center properly.
-                             // Assuming module spans room's grid cells.
-                             // Actually, module_index points to top-left of module in grid.
-                             // We should check the module grid size? Or just use the grid coord + center offset
-                             // Weapon modules are typically 2x2 in starter ship (256x256 room -> 256/40 ~ 6.4 cells? Wait)
-                             // Ship interior coordinates are different from Grid coordinates.
-                             // Ship Exterior Grid is 20x15.
-                             
-                             // Wait, I need to know how many cells the module occupies in the Exterior Grid.
-                             // room.module_index (gx, gy) are Exterior Grid coordinates.
-                             // To center the circle, we need the center of the module in Exterior Grid space.
-                             
-                             // Let's assume typical weapon is 2x2? 
-                             // Better: Check the grid at gx, gy. If it's part of a multi-cell module, how do we find center?
-                             // Since we iterate rooms, and room has module_index (gx, gy), 
-                             // lets just assume center of that specific cell (gx, gy) or center of the room in grid space?
-                             // In `combat.rs`, `fire_towers` uses `Layout::grid_to_screen_center(gx, gy)`.
-                             // Layout uses generic constants.
-                             // Here we have `start_x, start_y`.
-                             
-                             // Let's rely on the fact that for now, weapons might be 1x1 or we just draw from top-left offset.
-                             // Ideally we draw from the center of the module.
-                             // Let's try to infer module size or just reuse `module_index` which is the "primary" cell.
-                             // If `combat.rs` uses `grid_to_screen_center(gx, gy)`, I should match that.
-                             
-                             // calculate center of cell (gx, gy)
-                             let cx = start_x + gx as f32 * CELL_SIZE + CELL_SIZE / 2.0;
-                             let cy = start_y + gy as f32 * CELL_SIZE + CELL_SIZE / 2.0;
-                             
-                             // Draw circle
-                             draw_circle_lines(cx, cy, effective_range, 2.0, color_u8!(255, 100, 0, 100)); // Faint Orange
+                            // Locate module center on screen
+                            // Since we don't have Layout::grid_to_screen_center easily here without offsets,
+                            // we calculate it using start_x/y
+                            // Note: We need width/height of module to center properly.
+                            // Assuming module spans room's grid cells.
+                            // Actually, module_index points to top-left of module in grid.
+                            // We should check the module grid size? Or just use the grid coord + center offset
+                            // Weapon modules are typically 2x2 in starter ship (256x256 room -> 256/40 ~ 6.4 cells? Wait)
+                            // Ship interior coordinates are different from Grid coordinates.
+                            // Ship Exterior Grid is 20x15.
+
+                            // Wait, I need to know how many cells the module occupies in the Exterior Grid.
+                            // room.module_index (gx, gy) are Exterior Grid coordinates.
+                            // To center the circle, we need the center of the module in Exterior Grid space.
+
+                            // Let's assume typical weapon is 2x2?
+                            // Better: Check the grid at gx, gy. If it's part of a multi-cell module, how do we find center?
+                            // Since we iterate rooms, and room has module_index (gx, gy),
+                            // lets just assume center of that specific cell (gx, gy) or center of the room in grid space?
+                            // In `combat.rs`, `fire_towers` uses `Layout::grid_to_screen_center(gx, gy)`.
+                            // Layout uses generic constants.
+                            // Here we have `start_x, start_y`.
+
+                            // Let's rely on the fact that for now, weapons might be 1x1 or we just draw from top-left offset.
+                            // Ideally we draw from the center of the module.
+                            // Let's try to infer module size or just reuse `module_index` which is the "primary" cell.
+                            // If `combat.rs` uses `grid_to_screen_center(gx, gy)`, I should match that.
+
+                            // calculate center of cell (gx, gy)
+                            let cx = start_x + gx as f32 * CELL_SIZE + CELL_SIZE / 2.0;
+                            let cy = start_y + gy as f32 * CELL_SIZE + CELL_SIZE / 2.0;
+
+                            // Draw circle
+                            draw_circle_lines(
+                                cx,
+                                cy,
+                                effective_range,
+                                2.0,
+                                color_u8!(255, 100, 0, 100),
+                            ); // Faint Orange
                         }
                     }
                 }
@@ -427,7 +587,11 @@ impl Renderer {
     }
 
     pub fn draw_module_base(&self, x: f32, y: f32, has_module: bool) {
-        let color = if has_module { color_u8!(25, 25, 30, 255) } else { color_u8!(40, 40, 50, 255) };
+        let color = if has_module {
+            color_u8!(25, 25, 30, 255)
+        } else {
+            color_u8!(40, 40, 50, 255)
+        };
         draw_rectangle(x, y, CELL_SIZE, CELL_SIZE, color);
     }
 
@@ -442,7 +606,13 @@ impl Renderer {
         };
 
         let padding = 2.0;
-        draw_rectangle(x + padding, y + padding, CELL_SIZE - padding * 2.0, CELL_SIZE - padding * 2.0, color);
+        draw_rectangle(
+            x + padding,
+            y + padding,
+            CELL_SIZE - padding * 2.0,
+            CELL_SIZE - padding * 2.0,
+            color,
+        );
 
         match mod_data.state {
             ModuleState::Destroyed => {
@@ -450,10 +620,23 @@ impl Renderer {
                 draw_line(x + CELL_SIZE, y, x, y + CELL_SIZE, 2.0, BLACK);
             }
             ModuleState::Offline => {
-                draw_rectangle(x + padding, y + padding, CELL_SIZE - padding * 2.0, CELL_SIZE - padding * 2.0, color_u8!(0, 0, 0, 120));
+                draw_rectangle(
+                    x + padding,
+                    y + padding,
+                    CELL_SIZE - padding * 2.0,
+                    CELL_SIZE - padding * 2.0,
+                    color_u8!(0, 0, 0, 120),
+                );
             }
             ModuleState::Active => {
-                draw_rectangle_lines(x + padding, y + padding, CELL_SIZE - padding * 2.0, CELL_SIZE - padding * 2.0, 2.0, WHITE);
+                draw_rectangle_lines(
+                    x + padding,
+                    y + padding,
+                    CELL_SIZE - padding * 2.0,
+                    CELL_SIZE - padding * 2.0,
+                    2.0,
+                    WHITE,
+                );
             }
         }
     }
@@ -474,24 +657,30 @@ impl Renderer {
             if let Some(tex) = state.assets.get_texture(tex_name) {
                 let w = tex.width();
                 let h = tex.height();
-                
+
                 // Rotation towards ship center if applicable, or just 0 for top-down sprites?
                 // Most sprites face UP or RIGHT by default.
                 // Assuming sprites face UP.
-                let rotation = if let Some((gx, gy)) = enemy.target_module {
+                let rotation = if let Some((_gx, _gy)) = enemy.target_module {
                     // Face target
-                   // (Calculate angle)
+                    // (Calculate angle)
                     0.0
                 } else {
-                     0.0
+                    0.0
                 };
-                
+
                 // Draw sprite centered
-                draw_texture_ex(tex, ex - w / 2.0, ey - h / 2.0, WHITE, DrawTextureParams {
-                    rotation,
-                    pivot: None, // pivot at center by default for rotation? No, pivot is absolute.
-                    ..Default::default()
-                });
+                draw_texture_ex(
+                    tex,
+                    ex - w / 2.0,
+                    ey - h / 2.0,
+                    WHITE,
+                    DrawTextureParams {
+                        rotation,
+                        pivot: None, // pivot at center by default for rotation? No, pivot is absolute.
+                        ..Default::default()
+                    },
+                );
             } else {
                 // Fallback
                 let color = match enemy.enemy_type {
@@ -501,7 +690,7 @@ impl Renderer {
                     crate::enemy::entities::EnemyType::SiegeConstruct => DARKGRAY,
                     crate::enemy::entities::EnemyType::Boss => RED,
                 };
-                 draw_circle(ex, ey, 8.0, color);
+                draw_circle(ex, ey, 8.0, color);
             }
 
             if enemy.health < enemy.max_health {
@@ -509,7 +698,13 @@ impl Renderer {
                 let bar_height = 4.0;
                 let pct = enemy.health / enemy.max_health;
                 draw_rectangle(ex - bar_width / 2.0, ey - 15.0, bar_width, bar_height, RED);
-                draw_rectangle(ex - bar_width / 2.0, ey - 15.0, bar_width * pct, bar_height, GREEN);
+                draw_rectangle(
+                    ex - bar_width / 2.0,
+                    ey - 15.0,
+                    bar_width * pct,
+                    bar_height,
+                    GREEN,
+                );
             }
         }
     }
@@ -533,8 +728,18 @@ impl Renderer {
         for particle in &state.particles {
             if particle.active {
                 let alpha = (particle.lifetime / particle.max_lifetime).clamp(0.0, 1.0);
-                let color = Color::new(particle.color.r, particle.color.g, particle.color.b, particle.color.a * alpha);
-                draw_circle(particle.position.x + shake.x, particle.position.y + shake.y, 3.0, color);
+                let color = Color::new(
+                    particle.color.r,
+                    particle.color.g,
+                    particle.color.b,
+                    particle.color.a * alpha,
+                );
+                draw_circle(
+                    particle.position.x + shake.x,
+                    particle.position.y + shake.y,
+                    3.0,
+                    color,
+                );
             }
         }
     }

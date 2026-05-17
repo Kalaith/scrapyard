@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ModuleType {
@@ -46,17 +46,18 @@ impl Module {
 pub struct Ship {
     pub grid: Vec<Vec<Option<Module>>>,
     #[serde(skip)]
-    pub path_cache: std::cell::RefCell<std::collections::HashMap<(usize, usize), Vec<(usize, usize)>>>,
+    pub path_cache:
+        std::cell::RefCell<std::collections::HashMap<(usize, usize), Vec<(usize, usize)>>>,
 }
 
 impl Ship {
     pub fn new(width: usize, height: usize) -> Self {
         let mut grid = vec![vec![None; height]; width];
-        
+
         // Initialize starting ship layout - all modules start DESTROYED
         let cx = width / 2;
         let cy = height / 2;
-        
+
         // Core (Destroyed - needs repair)
         let mut core = Module::new(ModuleType::Core);
         core.state = ModuleState::Destroyed;
@@ -67,33 +68,33 @@ impl Ship {
         // Left: Weapon (Destroyed)
         let mut weapon1 = Module::new(ModuleType::Weapon);
         weapon1.state = ModuleState::Destroyed;
-        grid[cx-1][cy] = Some(weapon1);
-        
+        grid[cx - 1][cy] = Some(weapon1);
+
         // Right: Weapon (Destroyed)
         let mut weapon2 = Module::new(ModuleType::Weapon);
         weapon2.state = ModuleState::Destroyed;
-        grid[cx+1][cy] = Some(weapon2);
-        
+        grid[cx + 1][cy] = Some(weapon2);
+
         // Top: Empty slot (for building)
-        grid[cx][cy-1] = Some(Module::new(ModuleType::Empty));
-        
+        grid[cx][cy - 1] = Some(Module::new(ModuleType::Empty));
+
         // Bottom: Defense (Destroyed)
         let defense = Module::new(ModuleType::Defense);
-        grid[cx][cy+1] = Some(defense);
-        
+        grid[cx][cy + 1] = Some(defense);
+
         // Corners: More empty slots for expansion
-        grid[cx-1][cy-1] = Some(Module::new(ModuleType::Empty));
-        grid[cx+1][cy-1] = Some(Module::new(ModuleType::Empty));
-        grid[cx-1][cy+1] = Some(Module::new(ModuleType::Empty));
-        grid[cx+1][cy+1] = Some(Module::new(ModuleType::Empty));
-        
+        grid[cx - 1][cy - 1] = Some(Module::new(ModuleType::Empty));
+        grid[cx + 1][cy - 1] = Some(Module::new(ModuleType::Empty));
+        grid[cx - 1][cy + 1] = Some(Module::new(ModuleType::Empty));
+        grid[cx + 1][cy + 1] = Some(Module::new(ModuleType::Empty));
+
         // Engine (far from core, destroyed - needs repair to escape)
         let engine = Module::new(ModuleType::Engine);
-        grid[cx][cy+3] = Some(engine);
+        grid[cx][cy + 3] = Some(engine);
 
-        Self { 
+        Self {
             grid,
-            path_cache: std::cell::RefCell::new(std::collections::HashMap::new())
+            path_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
         }
     }
 
@@ -125,8 +126,8 @@ impl Ship {
     /// Calculate path from a starting position to the core using BFS.
     /// Returns the path as a vector of (x, y) coordinates, or None if no path exists.
     pub fn calculate_path_to_core(&self, start: (usize, usize)) -> Option<Vec<(usize, usize)>> {
-        use std::collections::{VecDeque, HashMap};
-        
+        use std::collections::{HashMap, VecDeque};
+
         // Check cache first
         if let Some(path) = self.path_cache.borrow().get(&start) {
             return Some(path.clone());
@@ -142,7 +143,7 @@ impl Ship {
 
         let mut queue = VecDeque::new();
         let mut came_from: HashMap<(usize, usize), (usize, usize)> = HashMap::new();
-        
+
         queue.push_back(start);
         came_from.insert(start, start);
 
@@ -158,10 +159,10 @@ impl Ship {
                     path.push(pos);
                 }
                 path.reverse();
-                
+
                 // Cache the result
                 self.path_cache.borrow_mut().insert(start, path.clone());
-                
+
                 return Some(path);
             }
 
@@ -190,4 +191,3 @@ impl Ship {
         self.path_cache.borrow_mut().clear();
     }
 }
-

@@ -63,7 +63,6 @@ pub struct EventBus {
     game_events: Vec<GameEvent>,
 }
 
-
 impl EventBus {
     pub fn new() -> Self {
         Self {

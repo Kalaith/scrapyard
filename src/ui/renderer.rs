@@ -1,6 +1,6 @@
-use macroquad::prelude::*;
-use crate::state::{GameState, GamePhase};
 use crate::simulation::constants::*;
+use crate::state::{GamePhase, GameState};
+use macroquad::prelude::*;
 
 pub struct Renderer {
     pub trauma: f32,

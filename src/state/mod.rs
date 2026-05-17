@@ -1,15 +1,13 @@
-pub mod game_state;
-mod game_update;     // Update logic (impl GameState)
-mod game_actions;    // Player actions (impl GameState)
+mod game_actions; // Player actions (impl GameState)
 #[cfg(not(target_arch = "wasm32"))]
 mod game_persistence; // Save/load (impl GameState)
+pub mod game_state;
+mod game_update; // Update logic (impl GameState)
 pub mod persistence;
-pub mod tutorial;
 pub mod profile;
+pub mod tutorial;
 
-pub use game_state::{GameState, GamePhase, EngineState, ViewMode};
-pub use tutorial::TutorialStep;
-pub use profile::PlayerProfile;
+pub use game_state::{EngineState, GamePhase, GameState, ViewMode};
 
 use crate::simulation::events::{EventBus, UIEvent};
 

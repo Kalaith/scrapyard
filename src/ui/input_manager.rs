@@ -1,6 +1,6 @@
-use macroquad::prelude::*;
-use crate::state::{GameState, GamePhase};
 use crate::simulation::events::EventBus;
+use crate::state::{GamePhase, GameState};
+use macroquad::prelude::*;
 
 /// Captures current input state for the frame
 #[derive(Debug, Clone)]

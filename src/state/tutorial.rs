@@ -21,11 +21,13 @@ pub struct TutorialConfig {
 impl TutorialConfig {
     /// Load tutorial config from embedded JSON
     pub fn load() -> Self {
-        serde_json::from_str(include_str!("../../assets/tutorial.json"))
-            .unwrap_or_else(|e| {
-                eprintln!("Warning: Failed to load tutorial.json: {}. Using empty tutorial.", e);
-                Self { steps: Vec::new() }
-            })
+        serde_json::from_str(include_str!("../../assets/tutorial.json")).unwrap_or_else(|e| {
+            eprintln!(
+                "Warning: Failed to load tutorial.json: {}. Using empty tutorial.",
+                e
+            );
+            Self { steps: Vec::new() }
+        })
     }
 }
 
@@ -98,7 +100,6 @@ pub enum TutorialStep {
     RepairEngine,
     Complete,
 }
-
 
 impl TutorialStep {
     /// Convert from index-based state to enum (for legacy code compatibility)

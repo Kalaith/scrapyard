@@ -1,10 +1,10 @@
 use crate::ship::ship::ModuleType;
-use std::collections::HashMap;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Deserialize)]
 struct ModulesJson {
-    modules: HashMap<String, ModuleConfigRaw>
+    modules: HashMap<String, ModuleConfigRaw>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -66,46 +66,58 @@ impl ModuleRegistry {
 
         // Load modules config from embedded JSON
         let json_content = include_str!("../../assets/modules.json");
-        let config: ModulesJson = serde_json::from_str(json_content)
-            .unwrap_or_else(|e| {
-                eprintln!("Warning: Failed to parse modules.json: {}. Using hardcoded defaults.", e);
-                // Return empty so defaults below are used, or panic? 
-                // Better to panic in dev if assets are broken.
-                // But let's return a basic struct to avoid crash if possible, but map lookups will fail.
-                ModulesJson { modules: HashMap::new() }
-            });
+        let config: ModulesJson = serde_json::from_str(json_content).unwrap_or_else(|e| {
+            eprintln!(
+                "Warning: Failed to parse modules.json: {}. Using hardcoded defaults.",
+                e
+            );
+            // Return empty so defaults below are used, or panic?
+            // Better to panic in dev if assets are broken.
+            // But let's return a basic struct to avoid crash if possible, but map lookups will fail.
+            ModulesJson {
+                modules: HashMap::new(),
+            }
+        });
 
         // Helper to determine module type from string
         fn get_module_type(key: &str) -> Option<ModuleType> {
-             match key.to_lowercase().as_str() {
-                 "core" => Some(ModuleType::Core),
-                 "weapon" => Some(ModuleType::Weapon),
-                 "defense" => Some(ModuleType::Defense),
-                 "utility" => Some(ModuleType::Utility),
-                 "engine" => Some(ModuleType::Engine),
-                 "empty" => Some(ModuleType::Empty),
-                 _ => None,
-             }
+            match key.to_lowercase().as_str() {
+                "core" => Some(ModuleType::Core),
+                "weapon" => Some(ModuleType::Weapon),
+                "defense" => Some(ModuleType::Defense),
+                "utility" => Some(ModuleType::Utility),
+                "engine" => Some(ModuleType::Engine),
+                "empty" => Some(ModuleType::Empty),
+                _ => None,
+            }
         }
 
         for (key, raw) in config.modules {
-             if let Some(mod_type) = get_module_type(&key) {
-                 let power = if raw.power_generation > 0 { raw.power_generation } else { -raw.power_consumption };
-                 let stats_obj = ModuleStats::new(&raw.name, raw.base_cost, power, raw.max_health)
-                     .with_combat(raw.range, raw.damage, raw.fire_rate);
-                 stats.insert(mod_type, stats_obj);
-             } else {
-                 eprintln!("Warning: Unknown module type in JSON: {}", key);
-             }
+            if let Some(mod_type) = get_module_type(&key) {
+                let power = if raw.power_generation > 0 {
+                    raw.power_generation
+                } else {
+                    -raw.power_consumption
+                };
+                let stats_obj = ModuleStats::new(&raw.name, raw.base_cost, power, raw.max_health)
+                    .with_combat(raw.range, raw.damage, raw.fire_rate);
+                stats.insert(mod_type, stats_obj);
+            } else {
+                eprintln!("Warning: Unknown module type in JSON: {}", key);
+            }
         }
 
         // Ensure Empty exists if not in JSON
-        stats.entry(ModuleType::Empty).or_insert_with(|| ModuleStats::new("Empty Slot", 0, 0, 0.0));
+        stats
+            .entry(ModuleType::Empty)
+            .or_insert_with(|| ModuleStats::new("Empty Slot", 0, 0, 0.0));
 
         Self { stats }
     }
 
     pub fn get(&self, module_type: ModuleType) -> &ModuleStats {
-        self.stats.get(&module_type).unwrap_or_else(|| self.stats.get(&ModuleType::Empty).unwrap())
+        self.stats
+            .get(&module_type)
+            .unwrap_or_else(|| self.stats.get(&ModuleType::Empty).unwrap())
     }
 }

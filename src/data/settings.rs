@@ -8,9 +8,9 @@ const CONFIG_PATH: &str = "config.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
-    pub master_volume: f32,    // 0.0 - 1.0
-    pub sfx_volume: f32,       // 0.0 - 1.0
-    pub music_volume: f32,     // 0.0 - 1.0
+    pub master_volume: f32, // 0.0 - 1.0
+    pub sfx_volume: f32,    // 0.0 - 1.0
+    pub music_volume: f32,  // 0.0 - 1.0
     pub fullscreen: bool,
     pub show_fps: bool,
     pub screen_shake: bool,
@@ -28,7 +28,6 @@ impl Default for Settings {
         }
     }
 }
-
 
 impl Settings {
     pub fn new() -> Self {

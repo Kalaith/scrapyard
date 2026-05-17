@@ -1,25 +1,33 @@
 //! Game action handlers
-//! 
+//!
 //! Contains methods for player-initiated actions: repairs, upgrades, module toggling.
 
-use crate::state::game_state::GameState;
-use crate::ship::ship::{ModuleType, ModuleState};
 use crate::ship::interior::RoomType;
-use crate::simulation::events::{EventBus, GameEvent};
+use crate::ship::ship::{ModuleState, ModuleType};
 use crate::simulation::constants::*;
+use crate::simulation::events::{EventBus, GameEvent};
+use crate::state::game_state::GameState;
 
 impl GameState {
     pub fn attempt_repair(&mut self, x: usize, y: usize, events: &mut EventBus) -> bool {
         let repair_cost = if let Some(module) = &self.ship.grid[x][y] {
-            if module.state != ModuleState::Destroyed { return false; }
+            if module.state != ModuleState::Destroyed {
+                return false;
+            }
             self.module_registry.get(module.module_type).base_cost
-        } else { return false; };
+        } else {
+            return false;
+        };
 
         if self.resources.can_afford(repair_cost) {
             self.resources.deduct(repair_cost);
             if let Some(module) = &mut self.ship.grid[x][y] {
                 module.state = ModuleState::Active;
-                events.push_game(GameEvent::ModuleRepaired { x, y, cost: repair_cost });
+                events.push_game(GameEvent::ModuleRepaired {
+                    x,
+                    y,
+                    cost: repair_cost,
+                });
                 return true;
             }
         }
@@ -28,10 +36,14 @@ impl GameState {
 
     pub fn attempt_upgrade(&mut self, x: usize, y: usize, events: &mut EventBus) -> bool {
         let upgrade_cost = if let Some(module) = &self.ship.grid[x][y] {
-            if module.state == ModuleState::Destroyed || module.level >= MODULE_MAX_LEVEL { return false; }
+            if module.state == ModuleState::Destroyed || module.level >= MODULE_MAX_LEVEL {
+                return false;
+            }
             let base_cost = self.module_registry.get(module.module_type).base_cost;
             (base_cost as f32 * (module.level as f32 * 0.5 + 1.0)) as i32
-        } else { return false; };
+        } else {
+            return false;
+        };
 
         if self.resources.can_afford(upgrade_cost) {
             self.resources.deduct(upgrade_cost);
@@ -39,7 +51,11 @@ impl GameState {
                 module.level += 1;
                 module.max_health *= MODULE_UPGRADE_HP_MULTIPLIER;
                 module.health = module.max_health;
-                events.push_game(GameEvent::ModuleUpgraded { x, y, new_level: module.level });
+                events.push_game(GameEvent::ModuleUpgraded {
+                    x,
+                    y,
+                    new_level: module.level,
+                });
                 return true;
             }
         }
@@ -57,7 +73,9 @@ impl GameState {
     }
 
     pub fn get_repair_cost(&self, room_idx: usize, _point_idx: usize) -> Option<(i32, i32)> {
-        if room_idx >= self.interior.rooms.len() { return None; }
+        if room_idx >= self.interior.rooms.len() {
+            return None;
+        }
         let room = &self.interior.rooms[room_idx];
         let scrap_cost = REPAIR_SCRAP_COST;
         let power_cost = match room.room_type {
@@ -73,48 +91,76 @@ impl GameState {
         Some((scrap_cost, power_cost))
     }
 
-    pub fn attempt_interior_repair(&mut self, room_idx: usize, point_idx: usize, events: &mut EventBus) -> bool {
-         if room_idx >= self.interior.rooms.len() { return false; }
-         let (scrap_cost, power_cost) = match self.get_repair_cost(room_idx, point_idx) {
-             Some(c) => c,
-             None => return false,
-         };
-         if self.interior.rooms[room_idx].repair_points.len() <= point_idx || 
-            self.interior.rooms[room_idx].repair_points[point_idx].repaired {
-             return false;
-         }
-         let is_reactor = matches!(self.interior.rooms[room_idx].room_type, RoomType::Module(ModuleType::Core));
-         if self.resources.scrap < scrap_cost { return false; }
-         if !is_reactor && (self.used_power + power_cost > self.total_power) { return false; }
-         self.resources.deduct(scrap_cost);
-         self.interior.rooms[room_idx].repair_points[point_idx].repaired = true;
-         
-         // Engine Stress Logic
-         if matches!(self.interior.rooms[room_idx].room_type, RoomType::Module(ModuleType::Engine)) {
-             self.engine_stress += STRESS_GAIN_PER_REPAIR;
-         }
+    pub fn attempt_interior_repair(
+        &mut self,
+        room_idx: usize,
+        point_idx: usize,
+        events: &mut EventBus,
+    ) -> bool {
+        if room_idx >= self.interior.rooms.len() {
+            return false;
+        }
+        let (scrap_cost, power_cost) = match self.get_repair_cost(room_idx, point_idx) {
+            Some(c) => c,
+            None => return false,
+        };
+        if self.interior.rooms[room_idx].repair_points.len() <= point_idx
+            || self.interior.rooms[room_idx].repair_points[point_idx].repaired
+        {
+            return false;
+        }
+        let is_reactor = matches!(
+            self.interior.rooms[room_idx].room_type,
+            RoomType::Module(ModuleType::Core)
+        );
+        if self.resources.scrap < scrap_cost {
+            return false;
+        }
+        if !is_reactor && (self.used_power + power_cost > self.total_power) {
+            return false;
+        }
+        self.resources.deduct(scrap_cost);
+        self.interior.rooms[room_idx].repair_points[point_idx].repaired = true;
 
-         events.push_game(GameEvent::ModuleRepaired { x: 0, y: 0, cost: scrap_cost }); // Coords meaningless for interior points
-         
-         if self.interior.rooms[room_idx].is_fully_repaired() {
+        // Engine Stress Logic
+        if matches!(
+            self.interior.rooms[room_idx].room_type,
+            RoomType::Module(ModuleType::Engine)
+        ) {
+            self.engine_stress += STRESS_GAIN_PER_REPAIR;
+        }
+
+        events.push_game(GameEvent::ModuleRepaired {
+            x: 0,
+            y: 0,
+            cost: scrap_cost,
+        }); // Coords meaningless for interior points
+
+        if self.interior.rooms[room_idx].is_fully_repaired() {
             if let Some((gx, gy)) = self.interior.rooms[room_idx].module_index {
                 if let Some(module) = &mut self.ship.grid[gx][gy] {
                     module.state = ModuleState::Active;
                     module.health = module.max_health;
                 }
             }
-         }
-         true
+        }
+        true
     }
 
     pub fn purchase_upgrade(&mut self, upgrade_id: &str) -> bool {
-        let template = self.upgrade_templates.iter().find(|t| t.id == upgrade_id).cloned();
+        let template = self
+            .upgrade_templates
+            .iter()
+            .find(|t| t.id == upgrade_id)
+            .cloned();
         if let Some(template) = template {
             let current_level = self.upgrades.get_level(upgrade_id);
             if current_level < template.max_level {
                 let cost = self.upgrades.get_cost(&template);
                 if self.resources.deduct_credits(cost) {
-                    self.upgrades.levels.insert(upgrade_id.to_string(), current_level + 1);
+                    self.upgrades
+                        .levels
+                        .insert(upgrade_id.to_string(), current_level + 1);
                     if upgrade_id == "hull_reinforcement" {
                         self.ship_max_integrity += HULL_UPGRADE_BONUS;
                         self.ship_integrity += HULL_UPGRADE_BONUS;

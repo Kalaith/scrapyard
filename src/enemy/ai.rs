@@ -1,9 +1,9 @@
-use macroquad::prelude::*;
-use crate::state::{GameState, EngineState};
 use crate::enemy::entities::{Enemy, EnemyType};
+use crate::ship::ship::{ModuleState, ModuleType, Ship};
 use crate::simulation::constants::*;
-use crate::ship::ship::{ModuleType, ModuleState, Ship};
 use crate::simulation::events::{EventBus, GameEvent};
+use crate::state::{EngineState, GameState};
+use macroquad::prelude::*;
 
 use crate::enemy::wave::WaveState;
 
@@ -15,10 +15,10 @@ pub fn update_wave_logic(
     wave_state: &mut WaveState,
     frame_count: u64,
     dt: f32,
-    events: &mut EventBus
+    events: &mut EventBus,
 ) {
     let power_level = total_power;
-    
+
     // Boss mode: Stop normal spawn when engine is charging or power >= 16
     if *engine_state == EngineState::Charging {
         // In boss mode, only spawn boss if not already present
@@ -41,9 +41,15 @@ pub fn update_wave_logic(
     let diff_mult = 1.0 + (targeting_tier as f32 * 0.5);
 
     let (drone_interval, guard_interval) = if power_level >= WAVE_T3_POWER {
-        (SPAWN_INTERVAL_DRONE_T3 / diff_mult, SPAWN_INTERVAL_GUARD_T3 / diff_mult)
+        (
+            SPAWN_INTERVAL_DRONE_T3 / diff_mult,
+            SPAWN_INTERVAL_GUARD_T3 / diff_mult,
+        )
     } else if power_level >= WAVE_T2_POWER {
-        (SPAWN_INTERVAL_DRONE_T2 / diff_mult, SPAWN_INTERVAL_GUARD_T2 / diff_mult)
+        (
+            SPAWN_INTERVAL_DRONE_T2 / diff_mult,
+            SPAWN_INTERVAL_GUARD_T2 / diff_mult,
+        )
     } else if power_level >= WAVE_T1_POWER {
         (SPAWN_INTERVAL_DRONE_T1 / diff_mult, f32::MAX)
     } else {
@@ -100,7 +106,7 @@ fn generate_enemy_id(enemy_count: usize, frame_count: u64) -> u64 {
 pub fn update_enemies(state: &mut GameState, dt: f32) {
     // Calculate core position from grid
     let core_pos = get_core_screen_position(state);
-    
+
     for enemy in &mut state.enemies {
         match enemy.enemy_type {
             EnemyType::Nanodrone => {
@@ -108,10 +114,10 @@ pub fn update_enemies(state: &mut GameState, dt: f32) {
                 let dir = (core_pos - enemy.position).normalize_or_zero();
                 enemy.position += dir * enemy.speed * dt;
                 enemy.target_module = state.ship.find_core();
-                
+
                 // Debug if stuck
                 // if state.frame_count % 60 == 0 {
-                //      println!("Drone {} at {}, speed {}, dt {}, dir {}, core {}", 
+                //      println!("Drone {} at {}, speed {}, dt {}, dir {}, core {}",
                 //      enemy.id, enemy.position, enemy.speed, dt, dir, core_pos);
                 // }
             }
@@ -161,16 +167,16 @@ pub fn update_enemies(state: &mut GameState, dt: f32) {
             EnemyType::Boss => {
                 // Boss: Slow approach, cycles through special abilities
                 let center = vec2(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0);
-                let dist_to_center = enemy.position.distance(center);
-                
+                let _dist_to_center = enemy.position.distance(center);
+
                 // Boss moves to Core/Center to attack
                 // Removing 150.0 distance stop so it actually attacks
                 let dir = (center - enemy.position).normalize_or_zero();
                 enemy.position += dir * enemy.speed * dt;
-                
+
                 // Update ability timer
                 enemy.ability_timer += dt;
-                
+
                 // Boss targets weapons preferentially, then core
                 if let Some(target) = find_priority_target(&state.ship) {
                     enemy.target_module = Some(target);
@@ -187,7 +193,8 @@ fn find_utility_module(ship: &Ship) -> Option<(usize, usize)> {
     for x in 0..GRID_WIDTH {
         for y in 0..GRID_HEIGHT {
             if let Some(module) = &ship.grid[x][y] {
-                if module.state == ModuleState::Active && module.module_type == ModuleType::Utility {
+                if module.state == ModuleState::Active && module.module_type == ModuleType::Utility
+                {
                     return Some((x, y));
                 }
             }
@@ -216,7 +223,7 @@ fn grid_to_screen(x: usize, y: usize) -> Vec2 {
 /// Find nearest active weapon or defense module for Nanoguard targeting
 fn find_priority_target(ship: &Ship) -> Option<(usize, usize)> {
     let mut best: Option<(usize, usize)> = None;
-    
+
     for x in 0..GRID_WIDTH {
         for y in 0..GRID_HEIGHT {
             if let Some(module) = &ship.grid[x][y] {
@@ -234,6 +241,6 @@ fn find_priority_target(ship: &Ship) -> Option<(usize, usize)> {
             }
         }
     }
-    
+
     best
 }

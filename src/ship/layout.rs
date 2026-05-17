@@ -1,5 +1,5 @@
+use crate::simulation::constants::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
 use macroquad::prelude::*;
-use crate::simulation::constants::{GRID_WIDTH, CELL_SIZE, GRID_HEIGHT};
 
 pub struct Layout;
 
@@ -24,12 +24,15 @@ impl Layout {
     pub fn screen_to_grid(pos: Vec2) -> Option<(usize, usize)> {
         let start_x = (screen_width() - GRID_WIDTH as f32 * CELL_SIZE) / 2.0;
         let start_y = (screen_height() - GRID_HEIGHT as f32 * CELL_SIZE) / 2.0;
-        
+
         let grid_width_px = GRID_WIDTH as f32 * CELL_SIZE;
         let grid_height_px = GRID_HEIGHT as f32 * CELL_SIZE;
 
-        if pos.x < start_x || pos.x > start_x + grid_width_px ||
-           pos.y < start_y || pos.y > start_y + grid_height_px {
+        if pos.x < start_x
+            || pos.x > start_x + grid_width_px
+            || pos.y < start_y
+            || pos.y > start_y + grid_height_px
+        {
             return None;
         }
 
@@ -48,13 +51,13 @@ impl Layout {
     pub fn screen_to_grid_clamped(pos: Vec2) -> (usize, usize) {
         let start_x = (screen_width() - GRID_WIDTH as f32 * CELL_SIZE) / 2.0;
         let start_y = (screen_height() - GRID_HEIGHT as f32 * CELL_SIZE) / 2.0;
-        
+
         let x = ((pos.x - start_x) / CELL_SIZE).floor() as i32;
         let y = ((pos.y - start_y) / CELL_SIZE).floor() as i32;
 
         (
             x.clamp(0, GRID_WIDTH as i32 - 1) as usize,
-            y.clamp(0, GRID_HEIGHT as i32 - 1) as usize
+            y.clamp(0, GRID_HEIGHT as i32 - 1) as usize,
         )
     }
 }

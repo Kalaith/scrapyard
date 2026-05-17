@@ -2,8 +2,7 @@
 //!
 //! Handles loading and playing sound effects with volume control from settings.
 
-use macroquad::audio::{Sound, PlaySoundParams, play_sound, load_sound};
-use std::collections::HashMap;
+use macroquad::audio::PlaySoundParams;
 
 /// Sound effect identifiers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -21,14 +20,14 @@ pub enum SoundEffect {
 }
 
 pub struct SoundManager {
-    sounds: HashMap<SoundEffect, Sound>,
+    inner: macroquad_toolkit::audio::SoundManager<SoundEffect>,
     enabled: bool,
 }
 
 impl SoundManager {
     pub fn new() -> Self {
         Self {
-            sounds: HashMap::new(),
+            inner: macroquad_toolkit::audio::SoundManager::new(),
             enabled: true,
         }
     }
@@ -50,31 +49,23 @@ impl SoundManager {
         ];
 
         for (effect, path) in sound_paths {
-            match load_sound(path).await {
-                Ok(sound) => {
-                    self.sounds.insert(effect, sound);
-                }
-                Err(_) => {
-                    // Sound file not found - silent failure is OK
-                    // Game will work without sounds
-                }
-            }
+            let _ = self.inner.load_sound(effect, path).await;
         }
     }
 
     /// Play a sound effect with the given volume (0.0 - 1.0)
     pub fn play(&self, effect: SoundEffect, volume: f32) {
-        if !self.enabled { return; }
-        
-        if let Some(sound) = self.sounds.get(&effect) {
-            play_sound(
-                sound,
-                PlaySoundParams {
-                    looped: false,
-                    volume: volume.clamp(0.0, 1.0),
-                }
-            );
+        if !self.enabled {
+            return;
         }
+
+        self.inner.play_raw(
+            effect,
+            PlaySoundParams {
+                looped: false,
+                volume: volume.clamp(0.0, 1.0),
+            },
+        );
     }
 
     /// Play a sound using settings-based volume
@@ -95,6 +86,6 @@ impl SoundManager {
 
     /// Check if any sounds were loaded
     pub fn has_sounds(&self) -> bool {
-        !self.sounds.is_empty()
+        !self.inner.is_empty()
     }
 }

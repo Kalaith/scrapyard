@@ -1,23 +1,23 @@
 // player.rs - Player character for interior view
 
-use macroquad::prelude::*;
-use crate::simulation::constants::*;
 use crate::ship::interior::ShipInterior;
+use crate::simulation::constants::*;
+use macroquad::prelude::*;
 
 /// Interior scale: each grid cell becomes a large room
 /// Room size in pixels = CELL_SIZE * ROOM_SCALE
-pub const ROOM_SCALE: f32 = 10.0;  // Each module is a 10x normal size room
-pub const TILE_SIZE: f32 = 10.0;   // Visual floor tile size (1/4 of old)
+pub const ROOM_SCALE: f32 = 10.0; // Each module is a 10x normal size room
+pub const TILE_SIZE: f32 = 10.0; // Visual floor tile size (1/4 of old)
 pub const PLAYER_SPEED: f32 = 300.0;
 pub const PLAYER_SIZE: f32 = 8.0;
 
 #[derive(Debug, Clone)]
 pub struct Player {
-    pub position: Vec2,       // World position in interior coordinates
+    pub position: Vec2, // World position in interior coordinates
     pub size: f32,
     pub speed: f32,
-    pub facing: Vec2,         // Direction player is facing
-    pub velocity: Vec2,       // Current velocity (for gathering logic)
+    pub facing: Vec2,                          // Direction player is facing
+    pub velocity: Vec2,                        // Current velocity (for gathering logic)
     pub nearby_module: Option<(usize, usize)>, // Module player can interact with
 }
 
@@ -40,7 +40,7 @@ impl Player {
     /// Update player movement based on input
     pub fn update(&mut self, dt: f32, interior: &ShipInterior) {
         let mut move_dir = Vec2::ZERO;
-        
+
         // WASD and Arrow key movement
         if is_key_down(KeyCode::W) || is_key_down(KeyCode::Up) {
             move_dir.y -= 1.0;
@@ -59,9 +59,9 @@ impl Player {
             move_dir = move_dir.normalize();
             self.facing = move_dir;
             self.velocity = move_dir * self.speed;
-            
+
             let new_pos = self.position + self.velocity * dt;
-            
+
             // Check collision with rooms - try full movement first
             if interior.is_walkable(new_pos) {
                 self.position = new_pos;

@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
-
 const PROFILE_PATH: &str = "player_profile.json";
 
 /// Persistent player profile that survives across game runs
@@ -36,7 +35,6 @@ impl Default for PlayerProfile {
     }
 }
 
-
 impl PlayerProfile {
     /// Load profile from disk, or create default if not found
     pub fn load() -> Self {
@@ -65,7 +63,7 @@ impl PlayerProfile {
         self.lifetime_credits += credits_earned;
         self.banked_credits += credits_earned;
         self.runs_completed += 1;
-        
+
         if self.best_time.is_none() || escape_time < self.best_time.unwrap() {
             self.best_time = Some(escape_time);
         }

@@ -1,14 +1,18 @@
-use macroquad::prelude::*;
-use crate::state::{GameState, ViewMode};
-use crate::simulation::events::{EventBus, UIEvent};
-use crate::simulation::constants::*;
 use crate::ship::interior::Room;
-use crate::ship::ship::{ModuleState, ModuleType};
+use crate::simulation::constants::*;
+use crate::simulation::events::{EventBus, UIEvent};
+use crate::state::{GameState, ViewMode};
 use crate::ui::input_manager::{InputManager, InputState};
 use crate::ui::pause_menu::PauseMenuOption;
+use macroquad::prelude::*;
 
 impl InputManager {
-    pub fn handle_gameplay_input(&mut self, input: &InputState, state: &mut GameState, events: &mut EventBus) {
+    pub fn handle_gameplay_input(
+        &mut self,
+        input: &InputState,
+        state: &mut GameState,
+        events: &mut EventBus,
+    ) {
         // If paused, handle pause menu input instead
         if state.paused {
             self.handle_pause_menu_input(input, state, events);
@@ -41,7 +45,12 @@ impl InputManager {
         }
     }
 
-    fn handle_pause_menu_input(&mut self, input: &InputState, state: &mut GameState, events: &mut EventBus) {
+    fn handle_pause_menu_input(
+        &mut self,
+        input: &InputState,
+        state: &mut GameState,
+        events: &mut EventBus,
+    ) {
         let menu_options = PauseMenuOption::all();
         let option_count = menu_options.len();
 
@@ -74,7 +83,7 @@ impl InputManager {
             let y = start_y + i as f32 * spacing;
             if mx >= btn_x && mx <= btn_x + btn_w && my >= y && my <= y + btn_h {
                 state.pause_menu_selection = i;
-                
+
                 // Mouse click selects
                 if input.left_click {
                     let selected = menu_options[i];
@@ -125,9 +134,14 @@ impl InputManager {
         }
     }
 
-    fn handle_settings_input(&mut self, input: &InputState, state: &mut GameState, events: &mut EventBus) {
+    fn handle_settings_input(
+        &mut self,
+        input: &InputState,
+        state: &mut GameState,
+        _events: &mut EventBus,
+    ) {
         const SETTING_COUNT: usize = 6; // 5 settings + Back
-        
+
         // Up/Down navigation
         if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
             state.settings_selection = if state.settings_selection == 0 {
@@ -143,13 +157,27 @@ impl InputManager {
         // Left/Right adjusts value
         let left = is_key_pressed(KeyCode::Left) || is_key_pressed(KeyCode::A);
         let right = is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::D);
-        let delta = if right { 0.1 } else if left { -0.1 } else { 0.0 };
+        let delta = if right {
+            0.1
+        } else if left {
+            -0.1
+        } else {
+            0.0
+        };
 
         if delta != 0.0 {
             match state.settings_selection {
-                0 => state.settings.master_volume = (state.settings.master_volume + delta).clamp(0.0, 1.0),
-                1 => state.settings.sfx_volume = (state.settings.sfx_volume + delta).clamp(0.0, 1.0),
-                2 => state.settings.music_volume = (state.settings.music_volume + delta).clamp(0.0, 1.0),
+                0 => {
+                    state.settings.master_volume =
+                        (state.settings.master_volume + delta).clamp(0.0, 1.0)
+                }
+                1 => {
+                    state.settings.sfx_volume = (state.settings.sfx_volume + delta).clamp(0.0, 1.0)
+                }
+                2 => {
+                    state.settings.music_volume =
+                        (state.settings.music_volume + delta).clamp(0.0, 1.0)
+                }
                 _ => {}
             }
         }
@@ -182,9 +210,14 @@ impl InputManager {
         }
     }
 
-    fn handle_interior_input(&mut self, input: &InputState, state: &mut GameState, events: &mut EventBus) {
+    fn handle_interior_input(
+        &mut self,
+        input: &InputState,
+        state: &mut GameState,
+        events: &mut EventBus,
+    ) {
         self.handle_scrap_gathering(state, events);
-        
+
         if input.interact_pressed {
             self.handle_interact(state, events);
         }
@@ -204,17 +237,24 @@ impl InputManager {
         }
 
         // Process gathering progress
-        let Some(target_idx) = state.gathering_target else { return };
-        if target_idx >= state.scrap_piles.len() { return };
+        let Some(target_idx) = state.gathering_target else {
+            return;
+        };
+        if target_idx >= state.scrap_piles.len() {
+            return;
+        };
 
         state.gathering_timer += get_frame_time();
-        if state.gathering_timer < GATHERING_TIME_SECONDS { return };
+        if state.gathering_timer < GATHERING_TIME_SECONDS {
+            return;
+        };
 
         // Complete gathering
         let mut amount = state.scrap_piles[target_idx].amount;
-        let bonus_pct = state.upgrades.get_level("scrap_efficiency") as f32 * SCRAP_EFFICIENCY_BONUS;
+        let bonus_pct =
+            state.upgrades.get_level("scrap_efficiency") as f32 * SCRAP_EFFICIENCY_BONUS;
         amount = (amount as f32 * (1.0 + bonus_pct)) as i32;
-        
+
         state.resources.add_scrap(amount);
         state.scrap_piles[target_idx].active = false;
         events.push_ui(UIEvent::Toggle(0, 0));
@@ -225,9 +265,11 @@ impl InputManager {
     fn find_nearest_scrap_pile(&self, state: &GameState) -> Option<usize> {
         let mut nearest = None;
         let mut min_dist = INTERACTION_RANGE;
-        
+
         for (i, pile) in state.scrap_piles.iter().enumerate() {
-            if !pile.active { continue; }
+            if !pile.active {
+                continue;
+            }
             let d = pile.position.distance(state.player.position);
             if d < min_dist {
                 min_dist = d;
@@ -243,7 +285,7 @@ impl InputManager {
             state.tutorial_state.advance(&state.tutorial_config);
             return;
         }
-        
+
         // Allow dismissing the final "complete" step with E
         if let Some(step) = state.tutorial_state.current_step(&state.tutorial_config) {
             if step.id == "complete" {
@@ -253,24 +295,35 @@ impl InputManager {
         }
 
         // Find room player is in
-        let Some(room_idx) = state.interior.rooms.iter()
-            .position(|r: &Room| r.contains(state.player.position)) else { return };
-        
+        let Some(room_idx) = state
+            .interior
+            .rooms
+            .iter()
+            .position(|r: &Room| r.contains(state.player.position))
+        else {
+            return;
+        };
+
         let room = &state.interior.rooms[room_idx];
-        
+
         // Find repair point at player position
-        let Some(point_idx) = room.repair_point_at(state.player.position) else { return };
-        
+        let Some(point_idx) = room.repair_point_at(state.player.position) else {
+            return;
+        };
+
         // Attempt repair
-        if !state.attempt_interior_repair(room_idx, point_idx, events) { return };
-        
+        if !state.attempt_interior_repair(room_idx, point_idx, events) {
+            return;
+        };
+
         // Advance tutorial when player repairs ANY point in the target room
         // This gives immediate positive feedback instead of requiring full room completion
-        let Some(target) = state.tutorial_state.target_room(&state.tutorial_config) else { return };
+        let Some(target) = state.tutorial_state.target_room(&state.tutorial_config) else {
+            return;
+        };
         let room = &state.interior.rooms[room_idx];
         if room.id == target {
             state.tutorial_state.advance(&state.tutorial_config);
         }
     }
-
 }

@@ -1,8 +1,8 @@
 // interior.rs - FTL-style ship interior with JSON-loaded room layout
 
+use crate::ship::ship::ModuleType;
 use macroquad::prelude::*;
 use serde::Deserialize;
-use crate::ship::ship::ModuleType;
 
 /// Room size constants (for default sizing)
 pub const ROOM_SIZE: f32 = 64.0;
@@ -13,23 +13,27 @@ pub const REPAIR_POINT_SIZE: f32 = 24.0;
 #[derive(Debug, Clone)]
 pub struct RepairPoint {
     pub id: usize,
-    pub x: f32,         // Position relative to room
+    pub x: f32, // Position relative to room
     pub y: f32,
     pub repaired: bool, // Whether this point has been repaired
 }
 
 impl RepairPoint {
     pub fn new(id: usize, x: f32, y: f32) -> Self {
-        Self { id, x, y, repaired: false }
+        Self {
+            id,
+            x,
+            y,
+            repaired: false,
+        }
     }
-    
+
     /// Check if position is within this repair point
     pub fn contains(&self, room_x: f32, room_y: f32, pos: Vec2) -> bool {
         let px = room_x + self.x;
         let py = room_y + self.y;
         let half = REPAIR_POINT_SIZE / 2.0;
-        pos.x >= px - half && pos.x <= px + half &&
-        pos.y >= py - half && pos.y <= py + half
+        pos.x >= px - half && pos.x <= px + half && pos.y >= py - half && pos.y <= py + half
     }
 }
 
@@ -157,8 +161,10 @@ impl Room {
     }
 
     pub fn contains(&self, pos: Vec2) -> bool {
-        pos.x >= self.x && pos.x <= self.x + self.width &&
-        pos.y >= self.y && pos.y <= self.y + self.height
+        pos.x >= self.x
+            && pos.x <= self.x + self.width
+            && pos.y >= self.y
+            && pos.y <= self.y + self.height
     }
 
     pub fn center(&self) -> Vec2 {
@@ -209,20 +215,27 @@ impl ShipInterior {
     /// Load ship layout from JSON string (embedded at compile time)
     pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
         let data: ShipData = serde_json::from_str(json_str)?;
-        
-        let rooms: Vec<Room> = data.rooms.iter().map(|rd| {
-            let room_type = RoomType::from_str(&rd.room_type);
-            let mut room = Room::new(rd.id, room_type, rd.x, rd.y, rd.w, rd.h);
-            room.connections = rd.connections.clone();
-            if let Some([gx, gy]) = rd.module {
-                room.module_index = Some((gx, gy));
-            }
-            // Load repair points
-            room.repair_points = rd.repair_points.iter().enumerate()
-                .map(|(i, rp)| RepairPoint::new(i, rp.x, rp.y))
-                .collect();
-            room
-        }).collect();
+
+        let rooms: Vec<Room> = data
+            .rooms
+            .iter()
+            .map(|rd| {
+                let room_type = RoomType::from_str(&rd.room_type);
+                let mut room = Room::new(rd.id, room_type, rd.x, rd.y, rd.w, rd.h);
+                room.connections = rd.connections.clone();
+                if let Some([gx, gy]) = rd.module {
+                    room.module_index = Some((gx, gy));
+                }
+                // Load repair points
+                room.repair_points = rd
+                    .repair_points
+                    .iter()
+                    .enumerate()
+                    .map(|(i, rp)| RepairPoint::new(i, rp.x, rp.y))
+                    .collect();
+                room
+            })
+            .collect();
 
         Ok(Self {
             rooms,
@@ -235,7 +248,10 @@ impl ShipInterior {
     pub fn starter_ship() -> Self {
         const SHIP_JSON: &str = include_str!("../../assets/ships/starter_ship.json");
         Self::from_json(SHIP_JSON).unwrap_or_else(|e| {
-            eprintln!("Warning: Failed to load starter ship: {}. Using fallback.", e);
+            eprintln!(
+                "Warning: Failed to load starter ship: {}. Using fallback.",
+                e
+            );
             Self {
                 rooms: Vec::new(),
                 width: 1000.0,
@@ -271,6 +287,7 @@ impl ShipInterior {
 
     /// Get module room if player is in one
     pub fn module_room_at(&self, pos: Vec2) -> Option<&Room> {
-        self.room_at(pos).filter(|r| matches!(r.room_type, RoomType::Module(_)))
+        self.room_at(pos)
+            .filter(|r| matches!(r.room_type, RoomType::Module(_)))
     }
 }

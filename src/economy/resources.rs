@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Resources {
@@ -27,7 +27,7 @@ impl Resources {
             self.scrap -= cost;
         }
     }
-    
+
     pub fn add_scrap(&mut self, amount: i32) {
         self.scrap = (self.scrap + amount).min(self.max_scrap);
     }

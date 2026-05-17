@@ -1,6 +1,6 @@
-use macroquad::prelude::*;
-use serde::{Serialize, Deserialize};
 use crate::simulation::constants::*;
+use macroquad::prelude::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EnemyType {
@@ -22,8 +22,8 @@ pub struct Enemy {
     pub damage: f32,
     pub target_module: Option<(usize, usize)>, // Grid coords
     pub attached_to: Option<(usize, usize)>,   // For Leech: module it's attached to
-    pub ability_timer: f32,                     // For Boss: cooldown for special abilities
-    pub attacking: bool,                        // Tracks if currently dealing damage (for sound throttling)
+    pub ability_timer: f32,                    // For Boss: cooldown for special abilities
+    pub attacking: bool, // Tracks if currently dealing damage (for sound throttling)
 }
 
 impl Enemy {

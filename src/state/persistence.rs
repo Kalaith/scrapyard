@@ -1,9 +1,9 @@
-use serde::{Serialize, Deserialize};
-use crate::ship::ship::Ship;
+use super::game_state::{EngineState, GamePhase, ViewMode};
 use crate::economy::resources::Resources;
-use crate::enemy::entities::EnemyType;
 use crate::economy::upgrades::GameUpgrades;
-use super::game_state::{GamePhase, EngineState, ViewMode};
+use crate::enemy::entities::EnemyType;
+use crate::ship::ship::Ship;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct SavedEnemy {
@@ -16,7 +16,7 @@ pub struct SavedEnemy {
     pub damage: f32,
     pub target: Option<(usize, usize)>,
     pub attached_to: Option<(usize, usize)>, // For Leech attachment
-    pub ability_timer: f32,                   // For Boss abilities
+    pub ability_timer: f32,                  // For Boss abilities
 }
 
 #[derive(Serialize, Deserialize)]

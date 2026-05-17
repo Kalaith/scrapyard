@@ -47,25 +47,25 @@ pub const BOSS_ABILITY_COOLDOWN: f32 = 8.0; // Seconds between boss abilities
 pub const BOSS_SPLIT_COUNT: usize = 3; // Number of drones spawned on boss death
 
 // Wave Logic
-pub const WAVE_GRACE_POWER: i32 = 4;   // Enemies don't spawn until player has more power
-pub const WAVE_T1_POWER: i32 = 16;      // First tier of enemy scaling
-pub const WAVE_T2_POWER: i32 = 24;      // Second tier - guards start appearing
-pub const WAVE_T3_POWER: i32 = 40;      // Final tier - full assault
+pub const WAVE_GRACE_POWER: i32 = 4; // Enemies don't spawn until player has more power
+pub const WAVE_T1_POWER: i32 = 16; // First tier of enemy scaling
+pub const WAVE_T2_POWER: i32 = 24; // Second tier - guards start appearing
+pub const WAVE_T3_POWER: i32 = 40; // Final tier - full assault
 
 pub const SPAWN_INTERVAL_DRONE_T0: f32 = 15.0; // Much slower initial spawns
-pub const SPAWN_INTERVAL_DRONE_T1: f32 = 8.0;  // Still manageable
-pub const SPAWN_INTERVAL_DRONE_T2: f32 = 4.0;  // Getting dangerous
-pub const SPAWN_INTERVAL_DRONE_T3: f32 = 2.0;  // Intense
+pub const SPAWN_INTERVAL_DRONE_T1: f32 = 8.0; // Still manageable
+pub const SPAWN_INTERVAL_DRONE_T2: f32 = 4.0; // Getting dangerous
+pub const SPAWN_INTERVAL_DRONE_T3: f32 = 2.0; // Intense
 
 pub const SPAWN_INTERVAL_GUARD_T2: f32 = 20.0; // Guards spawn slower
 pub const SPAWN_INTERVAL_GUARD_T3: f32 = 5.0;
 
 // Power system
-pub const POWER_PER_CORE_POINT: i32 = 1;  // Each reactor repair point gives 1 power
+pub const POWER_PER_CORE_POINT: i32 = 1; // Each reactor repair point gives 1 power
 pub const POWER_COST_WEAPON: i32 = 1;
 pub const POWER_COST_DEFENSE: i32 = 1;
 pub const POWER_COST_UTILITY: i32 = 1;
-pub const POWER_COST_ENGINE: i32 = 1;     // Was 2, now matches other modules
+pub const POWER_COST_ENGINE: i32 = 1; // Was 2, now matches other modules
 pub const POWER_COST_COCKPIT: i32 = 1;
 pub const POWER_COST_MEDBAY: i32 = 1;
 
@@ -97,23 +97,21 @@ pub const ENEMY_KILL_TRAUMA: f32 = 0.1;
 
 // Ship
 pub const SHIP_BASE_INTEGRITY: f32 = 1000.0;
-pub const HULL_UPGRADE_BONUS: f32 = 200.0;  // HP added per hull upgrade level
+pub const HULL_UPGRADE_BONUS: f32 = 200.0; // HP added per hull upgrade level
 
 // Module upgrades
 pub const MODULE_MAX_LEVEL: u8 = 5;
-pub const MODULE_UPGRADE_HP_MULTIPLIER: f32 = 1.5;  // HP multiplier per upgrade level
+pub const MODULE_UPGRADE_HP_MULTIPLIER: f32 = 1.5; // HP multiplier per upgrade level
 
 // Repair costs
-pub const REPAIR_SCRAP_COST: i32 = 10;  // Scrap cost per interior repair point
+pub const REPAIR_SCRAP_COST: i32 = 10; // Scrap cost per interior repair point
 
 // Engine Stress System
 pub const STRESS_GAIN_PER_REPAIR: f32 = 6.0;
-pub const STRESS_DECAY_IDLE: f32 = 2.0;       // Per second
+pub const STRESS_DECAY_IDLE: f32 = 2.0; // Per second
 pub const STRESS_THRESHOLD_STRAINED: f32 = 16.0;
 pub const STRESS_THRESHOLD_UNSTABLE: f32 = 31.0;
 pub const STRESS_THRESHOLD_CRITICAL: f32 = 46.0;
 pub const CASCADE_DAMAGE_PER_SEC: f32 = 50.0; // Rapid internal damage during cascade
 pub const CASCADE_BOSS_SPAWN_STRESS: f32 = 46.0; // Redundant with threshold but semantic
-pub const NANITE_ALERT_BASE: f32 = 16.0;      // Base divisor for charging stress
-
-
+pub const NANITE_ALERT_BASE: f32 = 16.0; // Base divisor for charging stress
