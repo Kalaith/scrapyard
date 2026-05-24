@@ -1,9 +1,12 @@
 pub mod assets;
 pub mod gameplay_input;
 pub mod input_manager;
+pub mod panels;
 pub mod pause_menu;
 pub mod renderer;
+pub mod ship_hud;
 pub mod sound_manager;
+pub mod theme;
 pub mod ui_input;
 pub mod ui_renderer;
 pub mod world_renderer;

@@ -11,6 +11,7 @@ use crate::ship::interior::{RoomType, ShipInterior};
 use crate::ship::player::Player;
 use crate::ship::ship::Ship;
 use crate::simulation::constants::*;
+use crate::simulation::events::GameEvent;
 use crate::simulation::gameplay::ModuleRegistry;
 use crate::ui::assets::AssetManager;
 
@@ -74,6 +75,7 @@ pub struct GameState {
     pub settings: Settings,
     pub engine_stress: f32,
     pub nanite_alert: f32,
+    pub recent_events: Vec<String>,
 }
 
 impl GameState {
@@ -132,6 +134,7 @@ impl GameState {
             settings: Settings::load(),
             engine_stress: 0.0,
             nanite_alert: NANITE_ALERT_BASE, // Initial alert level
+            recent_events: vec!["Systems waiting for repair".to_string()],
         };
 
         state.spawn_scrap_piles();
@@ -170,6 +173,9 @@ impl GameState {
         self.wave_state = WaveState::new();
         self.repair_timer = 0.0;
         self.pause_menu_selection = 0;
+        self.recent_events.clear();
+        self.recent_events
+            .push("New salvage run started".to_string());
 
         self.spawn_scrap_piles();
     }
@@ -190,6 +196,35 @@ impl GameState {
                     macroquad::rand::gen_range(SCRAP_PILE_MIN_AMOUNT, SCRAP_PILE_MAX_AMOUNT + 1);
                 self.scrap_piles.push(ScrapPile::new(vec2(x, y), amount));
             }
+        }
+    }
+
+    pub fn record_event(&mut self, event: &GameEvent) {
+        let message = match event {
+            GameEvent::ModuleRepaired { cost, .. } => format!("Module repaired (-{} scrap)", cost),
+            GameEvent::ModuleUpgraded { new_level, .. } => {
+                format!("Module upgraded to level {}", new_level)
+            }
+            GameEvent::ModuleDestroyed { .. } => "Module destroyed".to_string(),
+            GameEvent::EnemyKilled { scrap_dropped, .. } => {
+                format!("Nanite killed (+{} scrap)", scrap_dropped)
+            }
+            GameEvent::ModuleDamaged { damage, .. } => {
+                format!("Module damaged ({:.0})", damage)
+            }
+            GameEvent::CoreDamaged {
+                damage,
+                remaining_hp,
+            } => format!("Core hit {:.0}, {:.0} hull left", damage, remaining_hp),
+            GameEvent::EngineActivated => "Engine event detected".to_string(),
+            GameEvent::EscapeSuccess => "Escape successful".to_string(),
+            GameEvent::CoreDestroyed => "Core destroyed".to_string(),
+            GameEvent::WeaponFired { .. } => return,
+        };
+
+        self.recent_events.push(message);
+        if self.recent_events.len() > 12 {
+            self.recent_events.remove(0);
         }
     }
 }

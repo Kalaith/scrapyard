@@ -15,10 +15,12 @@ pub fn process_ui_events(state: &mut GameState, events: &mut EventBus) {
     for event in events.drain_ui() {
         match event {
             UIEvent::StartGame => {
+                state.settings_open = false;
                 state.start_new_game();
             }
             UIEvent::ReturnToMenu => {
                 state.paused = false;
+                state.settings_open = false;
                 state.phase = GamePhase::Menu;
             }
             UIEvent::Pause => {
@@ -77,7 +79,16 @@ pub fn process_ui_events(state: &mut GameState, events: &mut EventBus) {
                 }
             }
             UIEvent::ExitGame => {
-                std::process::exit(0);
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    std::process::exit(0);
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    state.paused = false;
+                    state.settings_open = false;
+                    state.phase = GamePhase::Menu;
+                }
             }
         }
     }

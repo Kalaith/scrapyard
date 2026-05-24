@@ -17,6 +17,7 @@ impl AssetManager {
 
     pub async fn load_assets(&mut self) {
         let textures = vec![
+            "menu_start_background",
             "enemy_nanodrone",
             "enemy_nanoguard",
             "enemy_leech",

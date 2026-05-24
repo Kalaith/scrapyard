@@ -52,6 +52,7 @@ async fn main() {
         sound_manager.set_enabled(game_state.settings.master_volume > 0.0);
 
         for event in event_bus.drain_game() {
+            game_state.record_event(&event);
             match event {
                 GameEvent::EnemyKilled { .. } => {
                     renderer.add_trauma(ENEMY_KILL_TRAUMA);

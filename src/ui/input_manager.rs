@@ -48,7 +48,7 @@ impl InputManager {
         let input = InputState::capture();
 
         match state.phase {
-            GamePhase::Menu => self.handle_menu_input(&input, events),
+            GamePhase::Menu => self.handle_menu_input(&input, state, events),
             GamePhase::Playing => self.handle_gameplay_input(&input, state, events),
             GamePhase::GameOver => self.handle_game_over_input(&input, events),
             GamePhase::Victory => self.handle_victory_input(&input, events),

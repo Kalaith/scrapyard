@@ -5,7 +5,17 @@ use crate::ui::renderer::Renderer;
 use macroquad::prelude::*;
 
 impl InputManager {
-    pub fn handle_menu_input(&self, input: &InputState, events: &mut EventBus) {
+    pub fn handle_menu_input(
+        &mut self,
+        input: &InputState,
+        state: &mut GameState,
+        events: &mut EventBus,
+    ) {
+        if state.settings_open {
+            self.handle_settings_input(input, state, events);
+            return;
+        }
+
         if input.enter_pressed || input.space_pressed {
             events.push_ui(UIEvent::StartGame);
             return;
@@ -14,28 +24,21 @@ impl InputManager {
         if input.left_click {
             // Use Renderer's button bounds for consistency
             let renderer = Renderer::new();
-            let (continue_bounds, new_game_bounds) = renderer.get_menu_button_bounds();
-
-            // Check Continue button click (if save exists)
-            if let Some((btn_x, btn_y, btn_w, btn_h)) = continue_bounds {
-                if input.mouse_pos.x >= btn_x
-                    && input.mouse_pos.x <= btn_x + btn_w
-                    && input.mouse_pos.y >= btn_y
-                    && input.mouse_pos.y <= btn_y + btn_h
-                {
-                    events.push_ui(UIEvent::LoadGame(0));
-                    return;
-                }
-            }
 
             // Check New Game button click
-            let (btn_x, btn_y, btn_w, btn_h) = new_game_bounds;
-            if input.mouse_pos.x >= btn_x
-                && input.mouse_pos.x <= btn_x + btn_w
-                && input.mouse_pos.y >= btn_y
-                && input.mouse_pos.y <= btn_y + btn_h
-            {
+            if contains_mouse(renderer.get_new_game_button_bounds(), input.mouse_pos) {
                 events.push_ui(UIEvent::StartGame);
+                return;
+            }
+
+            if contains_mouse(renderer.get_settings_button_bounds(), input.mouse_pos) {
+                state.settings_open = true;
+                state.settings_selection = 0;
+                return;
+            }
+
+            if contains_mouse(renderer.get_exit_button_bounds(), input.mouse_pos) {
+                events.push_ui(UIEvent::ExitGame);
             }
         }
     }
@@ -89,4 +92,9 @@ impl InputManager {
             }
         }
     }
+}
+
+fn contains_mouse(bounds: (f32, f32, f32, f32), mouse_pos: Vec2) -> bool {
+    let (x, y, w, h) = bounds;
+    mouse_pos.x >= x && mouse_pos.x <= x + w && mouse_pos.y >= y && mouse_pos.y <= y + h
 }

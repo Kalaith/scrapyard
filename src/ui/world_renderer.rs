@@ -3,6 +3,7 @@ use crate::ship::ship::{Module, ModuleState, ModuleType};
 use crate::simulation::constants::*;
 use crate::state::{GameState, ViewMode};
 use crate::ui::renderer::Renderer;
+use crate::ui::theme;
 use macroquad::prelude::*;
 
 impl Renderer {
@@ -23,120 +24,7 @@ impl Renderer {
             }
         }
 
-        // Draw HUD with stats (always visible)
-        self.draw_hud(state);
-
-        // View mode indicator
-        let mode_text = match state.view_mode {
-            ViewMode::Exterior => "EXTERIOR [Tab]",
-            ViewMode::Interior => "INTERIOR [Tab]",
-        };
-        draw_text(
-            mode_text,
-            screen_width() - 150.0,
-            screen_height() - 20.0,
-            18.0,
-            GRAY,
-        );
-
-        // Tutorial overlay
-        if !state.tutorial_state.is_complete() {
-            self.draw_tutorial(state);
-        }
-    }
-
-    fn draw_hud(&self, state: &GameState) {
-        // HUD background bar at top
-        draw_rectangle(0.0, 0.0, screen_width(), 35.0, color_u8!(0, 0, 0, 180));
-
-        // Power info
-        // Power info
-        let max_power: i32 = state
-            .interior
-            .rooms
-            .iter()
-            .filter(|r| {
-                matches!(
-                    r.room_type,
-                    crate::ship::interior::RoomType::Module(ModuleType::Core)
-                )
-            })
-            .map(|r| r.repair_points.len() as i32 * POWER_PER_CORE_POINT)
-            .sum();
-
-        let power_color = if state.used_power <= state.total_power {
-            GREEN
-        } else {
-            RED
-        };
-        let power_text = format!(
-            "Power: {}/{} [{}]",
-            state.used_power, state.total_power, max_power
-        );
-        draw_text(&power_text, 20.0, 24.0, 20.0, power_color);
-
-        // Scrap
-        let scrap_text = format!("Scrap: {}", state.resources.scrap);
-        draw_text(&scrap_text, 180.0, 24.0, 20.0, ORANGE);
-
-        // Credits
-        let credits_text = format!("Credits: {}", state.resources.credits);
-        draw_text(&credits_text, 320.0, 24.0, 20.0, YELLOW);
-
-        // Ship integrity
-        let hp_pct = state.ship_integrity / state.ship_max_integrity;
-        let hp_color = if hp_pct > 0.6 {
-            GREEN
-        } else if hp_pct > 0.3 {
-            YELLOW
-        } else {
-            RED
-        };
-        let hp_text = format!(
-            "Hull: {:.0}/{:.0}",
-            state.ship_integrity, state.ship_max_integrity
-        );
-        draw_text(&hp_text, 480.0, 24.0, 20.0, hp_color);
-
-        // Engine Status
-        let (stress_text, stress_color) = if state.engine_stress >= STRESS_THRESHOLD_CRITICAL {
-            ("ENGINE: CASCADE", RED)
-        } else if state.engine_stress >= STRESS_THRESHOLD_UNSTABLE {
-            ("ENGINE: UNSTABLE", ORANGE)
-        } else if state.engine_stress >= STRESS_THRESHOLD_STRAINED {
-            ("ENGINE: STRAINED", YELLOW)
-        } else {
-            if state.engine_stress > 0.0 {
-                ("ENGINE: WARM", GREEN)
-            } else {
-                ("ENGINE: STABLE", BLUE)
-            }
-        };
-        // Shake text if critical
-        let (dx, dy) = if state.engine_stress >= STRESS_THRESHOLD_CRITICAL {
-            (
-                macroquad::rand::gen_range(-2.0, 2.0),
-                macroquad::rand::gen_range(-2.0, 2.0),
-            )
-        } else {
-            (0.0, 0.0)
-        };
-        draw_text(stress_text, 680.0 + dx, 24.0 + dy, 20.0, stress_color);
-
-        // Nanite Alert
-        let alert_x = 900.0;
-        draw_text("Alert:", alert_x, 24.0, 20.0, WHITE);
-        draw_rectangle(alert_x + 60.0, 10.0, 100.0, 14.0, DARKGRAY);
-        let alert_pct = (state.nanite_alert / 50.0).clamp(0.0, 1.0);
-        draw_rectangle(alert_x + 60.0, 10.0, 100.0 * alert_pct, 14.0, RED);
-
-        // Engine/Escape timer (if charging)
-        if state.engine_state == crate::state::EngineState::Charging {
-            let mins = (state.escape_timer / 60.0).floor() as i32;
-            let secs = (state.escape_timer % 60.0).floor() as i32;
-            let escape_text = format!("ESCAPE: {:02}:{:02}", mins, secs);
-            draw_text(&escape_text, screen_width() - 180.0, 48.0, 20.0, SKYBLUE);
-        }
+        self.draw_ship_ui(state);
     }
 
     pub fn draw_interior(&self, state: &GameState) {
@@ -169,7 +57,6 @@ impl Renderer {
         self.draw_rooms(state, cam_x, cam_y);
         self.draw_player(state, cam_x, cam_y);
         self.draw_scrap_piles(state, cam_x, cam_y);
-        self.draw_repair_prompt(state, cam_x, cam_y);
     }
 
     fn draw_rooms(&self, state: &GameState, cam_x: f32, cam_y: f32) {
@@ -210,6 +97,16 @@ impl Renderer {
                 }
             } else {
                 draw_rectangle(rx, ry, room.width, room.height, room.color());
+            }
+
+            if !room.name().is_empty() {
+                draw_rectangle(
+                    rx,
+                    ry,
+                    room.width,
+                    room.height,
+                    theme::room_glow(room.room_type),
+                );
             }
 
             // Draw walls (top edge) using tile_wall_tech if room above is empty?
@@ -338,12 +235,19 @@ impl Renderer {
             if !name.is_empty() {
                 let text_size = 18.0;
                 let text_w = measure_text(name, None, text_size as u16, 1.0).width;
+                draw_rectangle(
+                    rx + (room.width - text_w) / 2.0 - 8.0,
+                    ry + 6.0,
+                    text_w + 16.0,
+                    22.0,
+                    color_u8!(0, 0, 0, 150),
+                );
                 draw_text(
                     name,
                     rx + (room.width - text_w) / 2.0,
                     ry + 24.0,
                     text_size,
-                    WHITE,
+                    theme::system_color(room.room_type),
                 );
             }
         }
@@ -415,60 +319,6 @@ impl Renderer {
                 }
             }
         }
-    }
-
-    fn draw_repair_prompt(&self, state: &GameState, cam_x: f32, cam_y: f32) {
-        let interior = &state.interior;
-        let Some(room) = interior.room_at(state.player.position) else {
-            return;
-        };
-        let Some(point_idx) = room.repair_point_at(state.player.position) else {
-            return;
-        };
-        if room.repair_points[point_idx].repaired {
-            return;
-        }
-
-        let Some(room_idx) = interior.rooms.iter().position(|r| r.id == room.id) else {
-            return;
-        };
-        let Some((scrap_cost, power_cost)) = state.get_repair_cost(room_idx, point_idx) else {
-            return;
-        };
-
-        let player_screen_x = cam_x + state.player.position.x;
-        let player_screen_y = cam_y + state.player.position.y;
-
-        let is_reactor = power_cost == 0;
-        let can_afford_scrap = state.resources.scrap >= scrap_cost;
-        let can_afford_power = is_reactor || (state.used_power + power_cost <= state.total_power);
-
-        let cost_text = if is_reactor {
-            format!("{scrap_cost} Scrap")
-        } else {
-            format!("{scrap_cost} Scrap + {power_cost} Power")
-        };
-
-        let label = if can_afford_scrap && can_afford_power {
-            format!("[E] Repair ({})", cost_text)
-        } else if !can_afford_scrap {
-            format!("Need {scrap_cost} Scrap")
-        } else {
-            format!("Need {power_cost} Power (Repair Reactor)")
-        };
-
-        let color = if can_afford_scrap && can_afford_power {
-            YELLOW
-        } else {
-            RED
-        };
-        draw_text(
-            &label,
-            player_screen_x - 60.0,
-            player_screen_y - 20.0,
-            16.0,
-            color,
-        );
     }
 
     pub fn draw_ship_hull(&self, state: &GameState) {

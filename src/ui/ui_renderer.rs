@@ -1,73 +1,53 @@
 use crate::state::GameState;
 use crate::ui::renderer::Renderer;
+use crate::ui::theme;
 use macroquad::prelude::*;
 
 impl Renderer {
-    pub fn draw_tutorial(&self, state: &GameState) {
-        let step = match state.tutorial_state.current_step(&state.tutorial_config) {
-            Some(s) => s,
-            None => return, // Tutorial complete
-        };
+    pub fn draw_menu(&self, state: &GameState) {
+        let has_background = self.draw_menu_background(state);
 
-        let box_height = 80.0;
-        let box_y = screen_height() - box_height; // Position at bottom
-        draw_rectangle(
-            0.0,
-            box_y,
-            screen_width(),
-            box_height,
-            color_u8!(0, 0, 0, 200),
-        );
-
-        let lines: Vec<&str> = step.message.split('\n').collect();
-
-        for (i, line) in lines.iter().enumerate() {
-            let text_w = measure_text(line, None, 20, 1.0).width;
-            draw_text(
-                line,
-                (screen_width() - text_w) / 2.0,
-                box_y + 25.0 + i as f32 * 24.0,
-                20.0,
-                WHITE,
-            );
+        if !has_background {
+            self.draw_fallback_menu_title();
         }
 
-        // Step counter (exclude welcome and complete from count)
-        let step_num = state.tutorial_state.current_index;
-        let total_steps = state.tutorial_config.steps.len().saturating_sub(2); // Exclude welcome/complete
-        if step.id == "complete" {
-            // Show "Press any key to dismiss" for the final step
-            draw_text(
-                "[Press E to dismiss]",
-                screen_width() - 180.0,
-                box_y + box_height - 10.0,
-                14.0,
-                YELLOW,
-            );
-        } else if step_num > 0 && step_num <= total_steps {
-            let step_text = format!("Step {}/{}", step_num, total_steps);
-            draw_text(&step_text, 20.0, box_y + box_height - 10.0, 16.0, GRAY);
-        }
-
-        if state.tutorial_state.is_welcome() {
-            draw_text(
-                "[Press E to continue]",
-                screen_width() - 180.0,
-                box_y + box_height - 10.0,
-                14.0,
-                YELLOW,
-            );
-        }
+        self.draw_menu_buttons();
     }
 
-    pub fn draw_menu(&self) {
+    fn draw_menu_background(&self, state: &GameState) -> bool {
+        let Some(texture) = state.assets.get_texture("menu_start_background") else {
+            draw_rectangle(
+                0.0,
+                0.0,
+                screen_width(),
+                screen_height(),
+                color_u8!(12, 12, 18, 255),
+            );
+            return false;
+        };
+
+        draw_texture_cover(
+            texture,
+            Rect::new(0.0, 0.0, screen_width(), screen_height()),
+        );
         draw_rectangle(
             0.0,
             0.0,
             screen_width(),
             screen_height(),
-            color_u8!(15, 15, 25, 255),
+            color_u8!(0, 0, 0, 56),
         );
+        draw_rectangle(
+            0.0,
+            screen_height() * 0.54,
+            screen_width(),
+            screen_height() * 0.46,
+            color_u8!(0, 0, 0, 76),
+        );
+        true
+    }
+
+    fn draw_fallback_menu_title(&self) {
         let title = "SCRAPYARD PLANET";
         let title_size = measure_text(title, None, 64, 1.0);
         draw_text(
@@ -87,91 +67,38 @@ impl Renderer {
             24.0,
             GRAY,
         );
-
-        let btn_width = 200.0;
-        let btn_height = 50.0;
-        let btn_x = screen_width() / 2.0 - btn_width / 2.0;
-
-        // Check if save file exists
-        let has_save = std::path::Path::new("save_slot_0.json").exists();
-
-        // Continue button (only if save exists)
-        let mut next_y = screen_height() / 2.0 + 20.0;
-        if has_save {
-            let btn_y = next_y;
-            let surface = macroquad_toolkit::ui::SurfaceStyle::new(color_u8!(40, 80, 60, 255))
-                .with_border(2.0, color_u8!(100, 180, 140, 255));
-            macroquad_toolkit::ui::draw_surface(
-                Rect::new(btn_x, btn_y, btn_width, btn_height),
-                &surface,
-            );
-            let continue_text = "CONTINUE";
-            let continue_size = measure_text(continue_text, None, 28, 1.0);
-            draw_text(
-                continue_text,
-                btn_x + btn_width / 2.0 - continue_size.width / 2.0,
-                btn_y + btn_height / 2.0 + 8.0,
-                28.0,
-                WHITE,
-            );
-            next_y += btn_height + 15.0;
-        }
-
-        // New Game button
-        let btn_y = next_y;
-        let surface = macroquad_toolkit::ui::SurfaceStyle::new(color_u8!(60, 60, 80, 255))
-            .with_border(2.0, color_u8!(100, 100, 140, 255));
-        macroquad_toolkit::ui::draw_surface(
-            Rect::new(btn_x, btn_y, btn_width, btn_height),
-            &surface,
-        );
-        let start_text = "NEW GAME";
-        let start_size = measure_text(start_text, None, 28, 1.0);
-        draw_text(
-            start_text,
-            btn_x + btn_width / 2.0 - start_size.width / 2.0,
-            btn_y + btn_height / 2.0 + 8.0,
-            28.0,
-            WHITE,
-        );
-
-        let hint = if has_save {
-            "Click CONTINUE to load or NEW GAME to start fresh"
-        } else {
-            "Click NEW GAME or press ENTER to begin"
-        };
-        let hint_size = measure_text(hint, None, 18, 1.0);
-        draw_text(
-            hint,
-            screen_width() / 2.0 - hint_size.width / 2.0,
-            screen_height() - 50.0,
-            18.0,
-            DARKGRAY,
-        );
     }
 
-    pub fn get_menu_button_bounds(&self) -> (Option<(f32, f32, f32, f32)>, (f32, f32, f32, f32)) {
-        let btn_width = 200.0;
-        let btn_height = 50.0;
-        let btn_x = screen_width() / 2.0 - btn_width / 2.0;
-        let has_save = std::path::Path::new("save_slot_0.json").exists();
+    fn draw_menu_buttons(&self) {
+        let buttons = [
+            (
+                "NEW GAME",
+                self.get_new_game_button_bounds(),
+                theme::warning(),
+            ),
+            ("SETTINGS", self.get_settings_button_bounds(), theme::cyan()),
+            ("EXIT GAME", self.get_exit_button_bounds(), theme::danger()),
+        ];
 
-        let mut next_y = screen_height() / 2.0 + 20.0;
-        let continue_bounds = if has_save {
-            let bounds = (btn_x, next_y, btn_width, btn_height);
-            next_y += btn_height + 15.0;
-            Some(bounds)
-        } else {
-            None
-        };
+        for (label, bounds, accent) in buttons {
+            draw_menu_button(bounds, label, accent);
+        }
+    }
 
-        let new_game_bounds = (btn_x, next_y, btn_width, btn_height);
-        (continue_bounds, new_game_bounds)
+    pub fn get_new_game_button_bounds(&self) -> (f32, f32, f32, f32) {
+        menu_button_bounds(0)
+    }
+
+    pub fn get_settings_button_bounds(&self) -> (f32, f32, f32, f32) {
+        menu_button_bounds(1)
+    }
+
+    pub fn get_exit_button_bounds(&self) -> (f32, f32, f32, f32) {
+        menu_button_bounds(2)
     }
 
     pub fn get_start_button_bounds(&self) -> (f32, f32, f32, f32) {
-        let (_, new_game) = self.get_menu_button_bounds();
-        new_game
+        self.get_new_game_button_bounds()
     }
 
     pub fn draw_game_over(&self, state: &GameState) {
@@ -415,4 +342,66 @@ impl Renderer {
             DARKGRAY,
         );
     }
+}
+
+fn menu_button_bounds(index: usize) -> (f32, f32, f32, f32) {
+    let width = 270.0;
+    let height = 46.0;
+    let gap = 14.0;
+    let x = screen_width() / 2.0 - width / 2.0;
+    let start_y = screen_height() * 0.58;
+    let y = start_y + index as f32 * (height + gap);
+
+    (x, y, width, height)
+}
+
+fn draw_menu_button(bounds: (f32, f32, f32, f32), label: &str, accent: Color) {
+    let (x, y, w, h) = bounds;
+    draw_rectangle(x, y, w, h, color_u8!(5, 7, 9, 210));
+    draw_rectangle_lines(x, y, w, h, 1.0, color_u8!(160, 164, 158, 180));
+    draw_rectangle(x, y, 4.0, h, accent);
+
+    let text_size = measure_text(label, None, 24, 1.0);
+    draw_text(
+        label,
+        x + (w - text_size.width) / 2.0,
+        y + h / 2.0 + 8.0,
+        24.0,
+        theme::text_primary(),
+    );
+}
+
+fn draw_texture_cover(texture: &Texture2D, dest: Rect) {
+    let texture_ratio = texture.width() / texture.height();
+    let dest_ratio = dest.w / dest.h;
+
+    let source = if texture_ratio > dest_ratio {
+        let source_w = texture.height() * dest_ratio;
+        Rect::new(
+            (texture.width() - source_w) / 2.0,
+            0.0,
+            source_w,
+            texture.height(),
+        )
+    } else {
+        let source_h = texture.width() / dest_ratio;
+        Rect::new(
+            0.0,
+            (texture.height() - source_h) / 2.0,
+            texture.width(),
+            source_h,
+        )
+    };
+
+    draw_texture_ex(
+        texture,
+        dest.x,
+        dest.y,
+        WHITE,
+        DrawTextureParams {
+            dest_size: Some(vec2(dest.w, dest.h)),
+            source: Some(source),
+            ..Default::default()
+        },
+    );
 }

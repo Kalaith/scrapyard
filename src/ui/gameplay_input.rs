@@ -134,7 +134,7 @@ impl InputManager {
         }
     }
 
-    fn handle_settings_input(
+    pub(crate) fn handle_settings_input(
         &mut self,
         input: &InputState,
         state: &mut GameState,
