@@ -1,99 +1,31 @@
 # Scrapyard Planet
 
-Spaceship management and survival game built with Rust and Macroquad.
+Scrapyard Planet is a survival tower-defense game about repairing a crashed spaceship on a hostile planet while rogue nanomachines attack anything that generates power.
 
-## Overview
+Every repair makes escape more possible, but powered modules attract more danger. The central tension is deciding what to fix first and how much threat your defenses can handle.
 
-**Genre**: Tower Defense / Resource Management  
-**Platform**: Desktop and Mobile (Windows + WebGL)  
-**Engine**: Macroquad (Rust)
+## Gameplay
 
-Scrapyard Planet is a tower defense game where players act as scrapyard operators repairing crashed spaceships on a hostile planet. Rogue nanomachines attack anything generating power, forcing players to balance ship repairs with defense. Destroyed nanomachines provide materials for further repairs, creating a tense risk-reward cycle. The goal is to restore the ship's power core, activate the engines, and escape before being overrun.
+- Move through the ship interior to repair modules and gather scrap.
+- Toggle between interior management and exterior defense views.
+- Activate weapons, engines, and support systems.
+- Fight off nanomachine waves drawn by power output.
+- Use dropped materials to repair and upgrade more systems.
+- Prepare for the final escape sequence.
 
-## How to Run
+## Goal
 
-Ensure you have Rust installed.
-
-```bash
-cargo run
-```
+Restore the ship's power core, activate the engines, survive the final pressure, and escape before being overrun.
 
 ## Controls
 
-- **WASD / Arrow Keys**: Move character (Interior View)
-- **Tab**: Toggle between Interior and Exterior views
-- **E**: Interact (Repair modules)
-- **Hold E**: Gather scrap from piles (Interior View)
-- **P**: Pause Game
-- **Esc**: Return to Menu
+- WASD: move character in interior view.
+- Tab: toggle interior and exterior views.
+- E: interact or repair modules.
+- Hold E: gather scrap from piles.
+- P: pause game.
+- Esc: return to menu.
 
-## Core Gameplay Loop
+## Current Scope
 
-1. **Arrival**: Start with a damaged ship and low enemy presence.
-2. **Repair**: Spend materials to repair or upgrade ship modules.
-3. **Defense**: Activated modules generate power, attracting nanomachine enemies.
-4. **Combat**: Ship weapons auto-fire at enemies; enemies drop materials on death.
-5. **Escalation**: Higher power increases enemy spawn rate and difficulty.
-6. **Escape**: Power the engine to trigger a boss and escape timer.
-
-Players must strategically sequence repairs to build defenses before attracting overwhelming enemy waves.
-
-## Ship Modules
-
-Ships have fixed layouts with 10–16 module slots, starting in states: Destroyed, Damaged, or Offline.
-
-### Weapon Modules
-*Kill enemies, generate materials*
-- **Pulse Turret**: Medium damage, low power cost.
-- **Beam Emitter**: Pierces enemies, high power cost.
-- **Missile Rack**: AoE damage, consumes materials.
-
-### Defense Modules
-*Slow or mitigate enemies*
-- **Shield Generator**: Absorbs damage.
-- **EMP Field**: Slows enemies.
-- **Decoy Beacon**: Redirects aggro.
-
-### Utility Modules
-*Economy and control*
-- **Recycler**: +20% materials from kills.
-- **Scanner**: Reveals hidden modules.
-- **Overclock Node**: Temporary weapon boost (risky).
-
-### Engine
-- **Win Condition**: Requires repair and sustained power. Triggers boss spawn and escape countdown.
-
-## Power System
-
-Power is the core difficulty dial. Total active power determines enemy threat:
-- **0–5 Power**: Light drones only
-- **6–10 Power**: Medium enemies
-- **11–15 Power**: Elites and swarms
-- **16+ Power**: Boss modifiers
-
-Power spikes from overclocking or events draw immediate surges.
-
-## Enemies
-
-Nanomachines spawn continuously toward the ship core, adapting to defenses.
-- **Nanodrone**: Fast, low HP, basic material drop, swarm behavior.
-- **Nanoguard**: Medium HP, targets defenses first.
-- **Leech Unit**: Attaches to modules, drains power.
-- **Siege Construct**: Slow, high damage, attacks hull directly.
-- **Boss**: Spawns when engine activates. Overrides targeting, disables modules, splits into units.
-
-## Win/Lose Conditions
-
-### Win
-- Power engines.
-- Defeat boss.
-- Survive escape timer.
-
-### Lose
-- Core HP reaches 0.
-- Engine destroyed after activation.
-- Materials depleted with no defenses.
-
-## Development
-
-Built using the [Macroquad](https://macroquad.rs/) game engine.
+Playable repair-and-defense loop with ship modules, scrap gathering, escalating waves, auto-firing weapons, and escape pressure.
