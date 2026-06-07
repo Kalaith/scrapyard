@@ -1,220 +1,39 @@
-# Agent Instructions (AGENTS.md)
+# RustGames Agent Instructions
 
-This project uses the shared RustGames agent instructions in [`../AGENTS.md`](../AGENTS.md). Codex should read and apply that file when working here.
+These instructions apply to all Rust game projects in this workspace.
 
-**Project**: Scrapyard Planet  
-**Engine**: Macroquad (Rust)  
-**Platform**: Windows + WebGL (itch.io)
+## Project Standards
 
-This document provides instructions for AI agents working on this project.
+- Build games with Rust, `macroquad`, and the shared `macroquad-toolkit` by default.
+- Treat missing runtime, rendering, input, asset, or platform behavior as potential `macroquad-toolkit` upgrades before creating project-local alternatives.
+- Only diverge from the shared toolkit when an existing project has a clear, established alternative or the need is genuinely game-specific.
+- Keep source files under 800 lines. Split large files by responsibility before they become difficult to scan or test.
+- Prefer small modules with explicit ownership of input, update logic, rendering, assets, and game state.
+- Use Rust's named module source filenames (`foo.rs`, `foo/bar.rs`) instead of `foo/mod.rs`. Do not create new `mod.rs` files.
+- Keep gameplay logic deterministic where practical. Isolate randomness behind small helper functions or state-owned RNG.
+- Avoid broad refactors while making focused changes. Match the style, naming, and structure already present in each project.
+- Use clear error handling for asset loading, save/load, publishing, and platform integration.
+- Do not introduce new dependencies unless they remove real complexity or match an established project pattern.
 
----
+## Macroquad Conventions
 
-## 1. Critical Rules
+- Use `macroquad` for the runtime loop, input, drawing, textures, audio, and timing.
+- Keep drawing code separate from state mutation where possible.
+- Treat screen size, scaling, and camera transforms as first-class concerns. Games should remain playable at common desktop browser sizes.
+- Avoid hard-coded absolute positions unless they are intentionally tied to a fixed virtual resolution.
+- Load assets through project-local asset paths and keep missing asset behavior obvious during publishing.
 
-### 1.1 No Cargo Commands
-**Never run cargo commands** (cargo run, cargo build, cargo check, cargo test). The user will run these manually.
+## Testing And Validation
 
-### 1.2 Follow CODE_STANDARDS.md
-All code must align with the project's Rust coding standards. Key highlights:
-- Readability over cleverness
-- Module responsibilities are strict (see Section 2.1 of CODE_STANDARDS.md)
-- Target 200-400 lines per file, max 800
-- Functions target 20-50 lines, max 100
-- UI code is "dumb" - reads state, emits actions, no business logic
+- Use each project's `publish.ps1` script as the validation path.
+- Do not treat running a local instance or local dev server as the required test path unless the user explicitly asks for it.
+- After meaningful changes, run `.\publish.ps1` with no parameters from the affected project directory and report whether it passes.
+- If `publish.ps1` is missing, blocked, or fails for an unrelated environment reason, report that clearly instead of substituting an unrequested local run.
 
----
+## File Size Rule
 
-## 2. Project Structure
-
-```
-src/
-├── ship/         # Ship modules, layouts, repairs
-├── enemy/        # Enemy types, AI, spawning, bosses
-├── economy/      # Materials, rewards, upgrades, currency
-├── mission/      # Mission flow, win/lose conditions, campaigns
-├── simulation/   # Game tick, power system, difficulty scaling
-├── state/        # Game state, views, persistence
-├── ui/           # All rendering (read-only)
-├── data/         # Config loaders, templates
-└── util/         # Cross-platform utilities
-assets/
-├── *.json        # Configuration files (data-driven)
-└── textures/     # PNG images
-```
-
----
-
-## 3. WebGL/WASM Builds
-
-### 3.1 File Loading for WASM
-**WASM cannot use `std::fs`**. Use `include_str!` for JSON configs:
-
-```rust
-#[cfg(target_arch = "wasm32")]
-let json = include_str!("../../assets/config.json");
-
-#[cfg(not(target_arch = "wasm32"))]
-let json = std::fs::read_to_string("assets/config.json")
-    .unwrap_or_else(|_| include_str!("../../assets/config.json").to_string());
-```
-
-### 3.2 Random Numbers
-Use `macroquad::rand` (not the `rand` crate) for WASM compatibility:
-```rust
-use macroquad::rand::gen_range;
-let value = gen_range(0, 100);
-```
-
-### 3.3 Asset Paths
-Use **relative paths** (no leading `/`):
-```rust
-// Correct
-let path = format!("assets/textures/{}.png", id);
-
-// Wrong - absolute path breaks itch.io
-let path = format!("/assets/textures/{}.png", id);
-```
-
----
-
-## 4. Publishing
-
-### 4.1 Build Script
-Use `publish.ps1` to create distributable packages:
-```powershell
-.\publish.ps1              # Windows + WebGL
-.\publish.ps1 -WindowsOnly # Windows only
-.\publish.ps1 -WebGLOnly   # WebGL only
-```
-
-### 4.2 Itch.io Settings
-For WebGL uploads on itch.io:
-- Enable "This file will be played in the browser"
-- Set viewport dimensions: **1280 x 720**
-- SharedArrayBuffer: OFF
-
----
-
-## 5. Graphics & Assets
-
-### 5.1 Requesting Graphics
-When graphics are needed, create a prompt request using these guidelines:
-
-**Prompt Template:**
-```
-Create a [SIZE] pixel art image for [SUBJECT].
-Style: [STYLE DESCRIPTION]
-Background: [transparent/solid color]
-Purpose: [in-game icon/portrait/background/etc]
-```
-
-**Example Prompts:**
-```
-Create a 64x64 pixel art icon of a pulse turret.
-Style: Sci-fi, metallic, glowing energy
-Background: Transparent
-Purpose: Weapon module icon
-
-Create a 256x256 pixel art portrait of a nanodrone enemy.
-Style: Mechanical, hostile, red glow
-Background: Transparent
-Purpose: Enemy archetype portrait
-```
-
-### 5.2 Asset Naming Convention
-```
-module_[type].png          # module_weapon.png
-enemy_[type].png           # enemy_nanodrone.png
-icon_[function].png        # icon_materials.png
-ship_[layout].png          # ship_crashed.png
-background_[scene].png     # background_planet.png
-```
-
-### 5.3 Asset Sizes
-- **Icons**: 32x32 or 64x64
-- **Portraits**: 256x256
-- **Backgrounds**: 1280x720 or larger
-- **Ship layouts**: 1280x720
-
----
-
-## 6. Data-Driven Design
-
-Configuration lives in JSON files under `assets/`:
-- `config.json` - Core game balance (power scaling, spawn rates)
-- `modules.json` - Module definitions (weapons, defense, utility)
-- `enemies.json` - Enemy types and behaviors
-- `ships.json` - Ship layouts and starting states
-- `missions.json` - Mission definitions and campaigns
-
-**Prefer adding to JSON over modifying Rust code** when possible.
-
----
-
-## 7. Common Patterns
-
-### 7.1 UI Actions
-UI returns actions, game state handles them:
-```rust
-pub enum UiAction {
-    RepairModule { module_id: usize },
-    UpgradeModule { module_id: usize },
-    ActivateEngine,
-    PauseGame,
-}
-```
-
-### 7.2 Game Events
-Events are logged and displayed:
-```rust
-pub enum GameEvent {
-    ModuleRepaired { name: String, power_cost: i32 },
-    EnemyKilled { enemy_type: String, materials_dropped: i32 },
-    BossSpawned,
-    MissionComplete { reward: i32 },
-}
-```
-
-### 7.3 Flags System
-Ships and modules use string flags:
-```rust
-ship.flags.insert("engine_online".to_string());
-if module.flags.contains("damaged") { ... }
-```
-
----
-
-## 8. Testing
-
-Focus tests on:
-- Power and difficulty calculations
-- Enemy spawning and AI
-- Economy and reward systems
-- Mission win/lose logic
-
-Do NOT write tests for UI rendering.
-
----
-
-## 9. Debugging Tips
-
-- Check the browser console (F12) for WASM errors
-- JSON parse errors usually mean malformed config files
-- 403 errors on itch.io = assets not being served (check zip structure)
-- Black screen in WebGL = likely WASM loading failure
-
----
-
-## 10. Quick Reference
-
-| Task | Command/Action |
-|------|----------------|
-| Build Windows | User runs `cargo build --release` |
-| Build WebGL | User runs `cargo build --release --target wasm32-unknown-unknown` |
-| Package for release | `.\publish.ps1` |
-| Test locally (WebGL) | `python -m http.server 8080` in dist/webgl |
-| Add new module | Edit assets/modules.json |
-| Add new enemy | Edit assets/enemies.json |
-| Add new ship layout | Edit assets/ships.json |
-| Add new mission | Edit assets/missions.json |
+- Keep every `.rs` file below 800 lines.
+- Treat a file reaching or approaching 800 lines as a restructure signal, not as a formatting target.
+- Do not preserve the limit by stripping useful spacing, compressing formatting, moving a single small function, or making other cosmetic line-count changes.
+- If a meaningful change would push a file over the limit, extract a cohesive responsibility into one or more nearby modules before or alongside the change.
+- If a touched file is already over 800 lines, make the restructure part of the current task, or queue it as the next work item before considering the task complete.
