@@ -3,6 +3,8 @@ use macroquad::prelude::*;
 // Re-export Sprite from toolkit
 pub use macroquad_toolkit::sprite::Sprite;
 
+const ASSET_PACK_PATH: &str = "assets.zip";
+
 // AssetManager wrapper that adds game-specific methods
 pub struct AssetManager {
     inner: macroquad_toolkit::assets::AssetManager,
@@ -16,6 +18,7 @@ impl AssetManager {
     }
 
     pub async fn load_assets(&mut self) {
+        let _ = self.inner.load_asset_pack(ASSET_PACK_PATH).await;
         let textures = vec![
             "menu_start_background",
             "enemy_nanodrone",

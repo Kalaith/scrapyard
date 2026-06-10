@@ -4,6 +4,8 @@
 
 use macroquad::audio::PlaySoundParams;
 
+const ASSET_PACK_PATH: &str = "assets.zip";
+
 /// Sound effect identifiers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SoundEffect {
@@ -34,6 +36,7 @@ impl SoundManager {
 
     /// Load all sound effects asynchronously
     pub async fn load_sounds(&mut self) {
+        let _ = self.inner.load_asset_pack(ASSET_PACK_PATH).await;
         // Map of sound effects to their file paths
         let sound_paths = [
             (SoundEffect::Repair, "assets/sounds/repair.wav"),
