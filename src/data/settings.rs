@@ -1,10 +1,11 @@
 // settings.rs - Game settings with save/load to config.json
 
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io;
 
 const CONFIG_PATH: &str = "config.json";
+#[cfg(target_arch = "wasm32")]
+const GAME_NAME: &str = "scrapyard";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -36,21 +37,15 @@ impl Settings {
 
     /// Load settings from config.json, or return defaults if file doesn't exist
     pub fn load() -> Self {
-        match File::open(CONFIG_PATH) {
-            Ok(file) => {
-                let reader = BufReader::new(file);
-                serde_json::from_reader(reader).unwrap_or_default()
-            }
+        match load_settings() {
+            Ok(settings) => settings,
             Err(_) => Self::default(),
         }
     }
 
     /// Save settings to config.json
     pub fn save(&self) -> std::io::Result<()> {
-        let file = File::create(CONFIG_PATH)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, self)?;
-        Ok(())
+        save_settings(self).map_err(|error| io::Error::new(io::ErrorKind::Other, error))
     }
 
     /// Get effective SFX volume (master * sfx)
@@ -62,4 +57,24 @@ impl Settings {
     pub fn effective_music_volume(&self) -> f32 {
         self.master_volume * self.music_volume
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_settings() -> Result<Settings, String> {
+    macroquad_toolkit::persistence::load_json(CONFIG_PATH)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn load_settings() -> Result<Settings, String> {
+    macroquad_toolkit::persistence::load_json_key(GAME_NAME, CONFIG_PATH)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn save_settings(settings: &Settings) -> Result<(), String> {
+    macroquad_toolkit::persistence::save_json_atomic(CONFIG_PATH, settings)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn save_settings(settings: &Settings) -> Result<(), String> {
+    macroquad_toolkit::persistence::save_json_key(GAME_NAME, CONFIG_PATH, settings)
 }

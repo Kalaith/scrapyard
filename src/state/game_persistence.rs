@@ -8,9 +8,7 @@ use crate::state::persistence::SaveData;
 use macroquad::prelude::*;
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::fs::File;
-#[cfg(not(target_arch = "wasm32"))]
-use std::io::{BufReader, BufWriter};
+use std::io;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::state::persistence::{SavedEnemy, SavedParticle, SavedProjectile, SavedScrapPile};
@@ -85,16 +83,12 @@ impl GameState {
             tutorial_index: self.tutorial_state.current_index,
             tutorial_completed: self.tutorial_state.completed,
         };
-        let file = File::create(path)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, &save_data)?;
-        Ok(())
+        macroquad_toolkit::persistence::save_json_atomic(path, &save_data).map_err(to_io_error)
     }
 
     pub fn load_from_file(path: &str) -> std::io::Result<Self> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        let save_data: SaveData = serde_json::from_reader(reader)?;
+        let save_data: SaveData =
+            macroquad_toolkit::persistence::load_json(path).map_err(to_io_error)?;
         let mut state = GameState::new();
         state.ship = save_data.ship;
         state.resources = save_data.resources;
@@ -188,4 +182,9 @@ impl GameState {
         let path = Self::get_save_slot_path(slot);
         Self::load_from_file(&path)
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn to_io_error(error: String) -> io::Error {
+    io::Error::new(io::ErrorKind::Other, error)
 }

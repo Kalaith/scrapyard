@@ -4,6 +4,7 @@ use crate::simulation::constants::*;
 use crate::simulation::events::{EventBus, GameEvent};
 use crate::state::{EngineState, GameState};
 use macroquad::prelude::*;
+use macroquad_toolkit::rng;
 
 use crate::enemy::wave::WaveState;
 
@@ -88,12 +89,12 @@ pub fn spawn_boss(enemies: &mut Vec<Enemy>, events: &mut EventBus, frame_count: 
 }
 
 fn random_spawn_position() -> Vec2 {
-    let side = rand::gen_range(0, 4);
+    let side = rng::gen_range(0, 4);
     match side {
-        0 => vec2(rand::gen_range(0.0, SCREEN_WIDTH), -50.0), // Top
-        1 => vec2(SCREEN_WIDTH + 50.0, rand::gen_range(0.0, SCREEN_HEIGHT)), // Right
-        2 => vec2(rand::gen_range(0.0, SCREEN_WIDTH), SCREEN_HEIGHT + 50.0), // Bottom
-        _ => vec2(-50.0, rand::gen_range(0.0, SCREEN_HEIGHT)), // Left
+        0 => vec2(rng::gen_range(0.0, SCREEN_WIDTH), -50.0), // Top
+        1 => vec2(SCREEN_WIDTH + 50.0, rng::gen_range(0.0, SCREEN_HEIGHT)), // Right
+        2 => vec2(rng::gen_range(0.0, SCREEN_WIDTH), SCREEN_HEIGHT + 50.0), // Bottom
+        _ => vec2(-50.0, rng::gen_range(0.0, SCREEN_HEIGHT)), // Left
     }
 }
 

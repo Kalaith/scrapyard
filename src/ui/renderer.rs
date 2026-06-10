@@ -1,6 +1,7 @@
 use crate::simulation::constants::*;
 use crate::state::{GamePhase, GameState};
 use macroquad::prelude::*;
+use macroquad_toolkit::rng;
 
 pub struct Renderer {
     pub trauma: f32,
@@ -34,8 +35,8 @@ impl Renderer {
         }
 
         let shake = self.trauma * self.trauma;
-        let offset_x = macroquad::rand::gen_range(-1.0, 1.0) * self.shake_intensity * shake;
-        let offset_y = macroquad::rand::gen_range(-1.0, 1.0) * self.shake_intensity * shake;
+        let offset_x = rng::gen_range(-1.0, 1.0) * self.shake_intensity * shake;
+        let offset_y = rng::gen_range(-1.0, 1.0) * self.shake_intensity * shake;
 
         vec2(offset_x, offset_y)
     }

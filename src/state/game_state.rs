@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use macroquad_toolkit::rng;
 use serde::{Deserialize, Serialize};
 
 use super::tutorial::{TutorialConfig, TutorialState};
@@ -181,19 +182,17 @@ impl GameState {
     }
 
     pub fn spawn_scrap_piles(&mut self) {
-        use macroquad::rand::ChooseRandom;
-        let count = macroquad::rand::gen_range(MIN_SCRAP_PILES, MAX_SCRAP_PILES + 1);
+        let count = rng::gen_range(MIN_SCRAP_PILES, MAX_SCRAP_PILES + 1);
         for _ in 0..count {
-            if let Some(room) = self.interior.rooms.choose() {
+            if let Some(room) = rng::choose(&self.interior.rooms) {
                 if room.room_type == RoomType::Empty {
                     continue;
                 }
                 let w = room.width - SCRAP_SPAWN_PADDING * 2.0;
                 let h = room.height - SCRAP_SPAWN_PADDING * 2.0;
-                let x = room.x + SCRAP_SPAWN_PADDING + macroquad::rand::gen_range(0.0, w);
-                let y = room.y + SCRAP_SPAWN_PADDING + macroquad::rand::gen_range(0.0, h);
-                let amount =
-                    macroquad::rand::gen_range(SCRAP_PILE_MIN_AMOUNT, SCRAP_PILE_MAX_AMOUNT + 1);
+                let x = room.x + SCRAP_SPAWN_PADDING + rng::gen_range(0.0, w);
+                let y = room.y + SCRAP_SPAWN_PADDING + rng::gen_range(0.0, h);
+                let amount = rng::gen_range(SCRAP_PILE_MIN_AMOUNT, SCRAP_PILE_MAX_AMOUNT + 1);
                 self.scrap_piles.push(ScrapPile::new(vec2(x, y), amount));
             }
         }

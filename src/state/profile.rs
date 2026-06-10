@@ -2,10 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io;
 
 const PROFILE_PATH: &str = "player_profile.json";
+#[cfg(target_arch = "wasm32")]
+const GAME_NAME: &str = "scrapyard";
 
 /// Persistent player profile that survives across game runs
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,24 +39,18 @@ impl Default for PlayerProfile {
 impl PlayerProfile {
     /// Load profile from disk, or create default if not found
     pub fn load() -> Self {
-        match File::open(PROFILE_PATH) {
-            Ok(file) => {
-                let reader = BufReader::new(file);
-                serde_json::from_reader(reader).unwrap_or_else(|e| {
-                    eprintln!("Warning: Failed to parse profile: {}. Using default.", e);
-                    Self::default()
-                })
+        match load_profile() {
+            Ok(profile) => profile,
+            Err(error) => {
+                eprintln!("Warning: Failed to load profile: {error}. Using default.");
+                Self::default()
             }
-            Err(_) => Self::default(),
         }
     }
 
     /// Save profile to disk
     pub fn save(&self) -> std::io::Result<()> {
-        let file = File::create(PROFILE_PATH)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, self)?;
-        Ok(())
+        save_profile(self).map_err(|error| io::Error::new(io::ErrorKind::Other, error))
     }
 
     /// Record a successful escape
@@ -78,4 +73,24 @@ impl PlayerProfile {
             false
         }
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_profile() -> Result<PlayerProfile, String> {
+    macroquad_toolkit::persistence::load_json(PROFILE_PATH)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn load_profile() -> Result<PlayerProfile, String> {
+    macroquad_toolkit::persistence::load_json_key(GAME_NAME, PROFILE_PATH)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn save_profile(profile: &PlayerProfile) -> Result<(), String> {
+    macroquad_toolkit::persistence::save_json_atomic(PROFILE_PATH, profile)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn save_profile(profile: &PlayerProfile) -> Result<(), String> {
+    macroquad_toolkit::persistence::save_json_key(GAME_NAME, PROFILE_PATH, profile)
 }
