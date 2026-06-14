@@ -48,6 +48,8 @@ pub enum GameEvent {
     CoreDamaged { damage: f32, remaining_hp: f32 },
     /// Engine activated - escape sequence started
     EngineActivated,
+    /// A repaired ship system was routed online or offline
+    PowerRouted { system: String, powered: bool },
     /// Escape successful
     EscapeSuccess,
     /// Game over - core destroyed

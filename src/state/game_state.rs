@@ -38,6 +38,19 @@ pub enum ViewMode {
     Interior,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct PayoutBreakdown {
+    pub base: i32,
+    pub repaired_bonus: i32,
+    pub powered_bonus: i32,
+    pub hull_bonus: i32,
+    pub scrap_bonus: i32,
+    pub combat_bonus: i32,
+    pub risk_bonus: i32,
+    pub penalties: i32,
+    pub total: i32,
+}
+
 pub struct GameState {
     pub ship: Ship,
     pub interior: ShipInterior,
@@ -50,6 +63,7 @@ pub struct GameState {
     pub total_power: i32,
     pub used_power: i32,
     pub required_power: i32,
+    pub threat_signature: i32,
     pub ship_integrity: f32,
     pub ship_max_integrity: f32,
     pub tutorial_config: TutorialConfig,
@@ -76,6 +90,9 @@ pub struct GameState {
     pub settings: Settings,
     pub engine_stress: f32,
     pub nanite_alert: f32,
+    pub life_support_timer: f32,
+    pub enemies_destroyed: i32,
+    pub last_payout: Option<PayoutBreakdown>,
     pub recent_events: Vec<String>,
 }
 
@@ -102,6 +119,7 @@ impl GameState {
             total_power: 0,
             used_power: 0,
             required_power: 100,
+            threat_signature: 0,
             ship_integrity: SHIP_BASE_INTEGRITY,
             ship_max_integrity: SHIP_BASE_INTEGRITY,
             tutorial_config: TutorialConfig::load(),
@@ -135,6 +153,9 @@ impl GameState {
             settings: Settings::load(),
             engine_stress: 0.0,
             nanite_alert: NANITE_ALERT_BASE, // Initial alert level
+            life_support_timer: 0.0,
+            enemies_destroyed: 0,
+            last_payout: None,
             recent_events: vec!["Systems waiting for repair".to_string()],
         };
 
@@ -162,6 +183,7 @@ impl GameState {
 
         self.total_power = 0;
         self.used_power = 0;
+        self.threat_signature = 0;
         self.ship_integrity = SHIP_BASE_INTEGRITY;
         self.ship_max_integrity = SHIP_BASE_INTEGRITY;
         self.tutorial_state = TutorialState::new();
@@ -173,6 +195,9 @@ impl GameState {
 
         self.wave_state = WaveState::new();
         self.repair_timer = 0.0;
+        self.life_support_timer = 0.0;
+        self.enemies_destroyed = 0;
+        self.last_payout = None;
         self.pause_menu_selection = 0;
         self.recent_events.clear();
         self.recent_events
@@ -216,6 +241,10 @@ impl GameState {
                 remaining_hp,
             } => format!("Core hit {:.0}, {:.0} hull left", damage, remaining_hp),
             GameEvent::EngineActivated => "Engine event detected".to_string(),
+            GameEvent::PowerRouted { system, powered } => {
+                let state = if *powered { "online" } else { "offline" };
+                format!("{system} routed {state}")
+            }
             GameEvent::EscapeSuccess => "Escape successful".to_string(),
             GameEvent::CoreDestroyed => "Core destroyed".to_string(),
             GameEvent::WeaponFired { .. } => return,
