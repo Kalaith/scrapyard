@@ -42,6 +42,7 @@ pub fn process_ui_events(state: &mut GameState, events: &mut EventBus) {
             UIEvent::PurchaseUpgrade(id) => {
                 if state.phase == GamePhase::Victory {
                     state.phase = GamePhase::InterRound;
+                    state.sync_upgrades_from_profile();
                 } else {
                     state.purchase_upgrade(&id);
                 }

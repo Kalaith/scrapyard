@@ -60,10 +60,16 @@ pub struct SaveData {
     pub time_survived: f32,
     // Interior repair states: room_id -> list of repaired repair point indices
     pub room_repair_states: Vec<Vec<bool>>,
+    #[serde(default)]
+    pub room_power_states: Vec<bool>,
     // Player state
     pub player_pos: (f32, f32),
     pub view_mode: ViewMode,
     // Tutorial state
     pub tutorial_index: usize,
     pub tutorial_completed: bool,
+    #[serde(default)]
+    pub life_support_timer: f32,
+    #[serde(default)]
+    pub enemies_destroyed: i32,
 }

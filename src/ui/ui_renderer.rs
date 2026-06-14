@@ -133,12 +133,17 @@ impl Renderer {
             RED,
         );
 
-        let stats_y = screen_height() / 2.0;
+        let stats_y = screen_height() / 2.0 - 20.0;
         let minutes = (state.time_survived / 60.0).floor() as i32;
         let seconds = (state.time_survived % 60.0).floor() as i32;
+        let payout = state
+            .last_payout
+            .unwrap_or_else(|| state.calculate_failure_payout());
         let stats = [
-            format!("Scrap Collected: {}", state.resources.scrap + 100),
-            format!("Credits Earned: {}", state.resources.credits),
+            format!("Recovery Value: {} credits", payout.total),
+            format!("Lost Penalties: -{} credits", payout.penalties),
+            format!("Scrap Remaining: {}", state.resources.scrap),
+            format!("Kills: {}", state.enemies_destroyed),
             format!("Time Survived: {:02}:{:02}", minutes, seconds),
         ];
 
@@ -205,21 +210,20 @@ impl Renderer {
             color_u8!(150, 255, 150, 255),
         );
 
-        let stats_y = screen_height() / 2.0;
+        let stats_y = screen_height() / 2.0 - 40.0;
+        let payout = state
+            .last_payout
+            .unwrap_or_else(|| state.calculate_payout());
         let stats = [
-            format!("Total Credits: {}", state.resources.credits),
-            format!(
-                "Core Health Remaining: {:.0}%",
-                if let Some(pos) = state.ship.find_core() {
-                    if let Some(core) = &state.ship.grid[pos.0][pos.1] {
-                        (core.health / core.max_health) * 100.0
-                    } else {
-                        0.0
-                    }
-                } else {
-                    0.0
-                }
-            ),
+            format!("Contract Base: +{} credits", payout.base),
+            format!("Systems Repaired: +{} credits", payout.repaired_bonus),
+            format!("Systems Powered: +{} credits", payout.powered_bonus),
+            format!("Hull Condition: +{} credits", payout.hull_bonus),
+            format!("Scrap Reserve: +{} credits", payout.scrap_bonus),
+            format!("Combat Bonus: +{} credits", payout.combat_bonus),
+            format!("Risk Bonus: +{} credits", payout.risk_bonus),
+            format!("Stress Penalties: -{} credits", payout.penalties),
+            format!("Total Paid: {} credits", payout.total),
         ];
 
         for (i, stat) in stats.iter().enumerate() {
@@ -252,11 +256,16 @@ impl Renderer {
             screen_height(),
             color_u8!(15, 20, 30, 255),
         );
-        let title = "SHIP IMPROVEMENTS";
+        let title = "SALVAGE GUILD UPGRADES";
         let title_w = measure_ui_text(title, None, 48, 1.0).width;
         draw_ui_text(title, (screen_width() - title_w) / 2.0, 60.0, 48.0, WHITE);
 
-        let credits_text = format!("AVAILABLE CREDITS: {}", state.resources.credits);
+        let credits_text = format!(
+            "BANKED CREDITS: {}   LIFETIME: {}   ESCAPES: {}",
+            state.profile.banked_credits,
+            state.profile.lifetime_credits,
+            state.profile.runs_completed
+        );
         let cred_w = measure_ui_text(&credits_text, None, 24, 1.0).width;
         draw_ui_text(
             &credits_text,
@@ -266,18 +275,23 @@ impl Renderer {
             GREEN,
         );
 
-        let start_y = 150.0;
-        let card_w = 600.0;
-        let card_h = 80.0;
-        let spacing = 20.0;
-        let card_x = (screen_width() - card_w) / 2.0;
+        let start_y = 146.0;
+        let card_w = 560.0;
+        let card_h = 76.0;
+        let spacing_x = 24.0;
+        let spacing_y = 12.0;
+        let total_w = card_w * 2.0 + spacing_x;
+        let card_x = (screen_width() - total_w) / 2.0;
 
         for (i, template) in state.upgrade_templates.iter().enumerate() {
-            let y = start_y + i as f32 * (card_h + spacing);
-            let current_level = state.upgrades.get_level(&template.id);
+            let col = i % 2;
+            let row = i / 2;
+            let x = card_x + col as f32 * (card_w + spacing_x);
+            let y = start_y + row as f32 * (card_h + spacing_y);
+            let current_level = state.profile.upgrade_level(&template.id);
             let is_max = current_level >= template.max_level;
-            let cost = state.upgrades.get_cost(template);
-            let can_afford = state.resources.credits >= cost && !is_max;
+            let cost = state.profile.upgrade_cost(template);
+            let can_afford = state.profile.banked_credits >= cost && !is_max;
 
             let bg_color = if is_max {
                 color_u8!(40, 50, 40, 255)
@@ -288,52 +302,40 @@ impl Renderer {
             };
             let surface = macroquad_toolkit::ui::SurfaceStyle::new(bg_color)
                 .with_border(2.0, if can_afford { YELLOW } else { GRAY });
-            macroquad_toolkit::ui::draw_surface(Rect::new(card_x, y, card_w, card_h), &surface);
+            macroquad_toolkit::ui::draw_surface(Rect::new(x, y, card_w, card_h), &surface);
 
             draw_ui_text(
                 &format!(
-                    "{} (Level {}/{})",
-                    template.name, current_level, template.max_level
+                    "[{}] {} ({}/{})",
+                    i + 1,
+                    template.name,
+                    current_level,
+                    template.max_level
                 ),
-                card_x + 15.0,
+                x + 15.0,
                 y + 30.0,
                 24.0,
                 WHITE,
             );
-            draw_ui_text(&template.description, card_x + 15.0, y + 55.0, 16.0, GRAY);
+            let description = fit_card_text(&template.description, card_w - 150.0, 15);
+            draw_ui_text(&description, x + 15.0, y + 55.0, 15.0, GRAY);
 
             if is_max {
-                draw_ui_text("MAX LEVEL", card_x + card_w - 120.0, y + 45.0, 20.0, GREEN);
+                draw_ui_text("MAX", x + card_w - 68.0, y + 44.0, 20.0, GREEN);
             } else {
                 let cost_color = if can_afford { WHITE } else { RED };
                 draw_ui_text(
-                    &format!("Cost: {} Cr", cost),
-                    card_x + card_w - 150.0,
-                    y + 35.0,
+                    &format!("{} CR", cost),
+                    x + card_w - 105.0,
+                    y + 32.0,
                     20.0,
                     cost_color,
                 );
-                if can_afford {
-                    draw_ui_text(
-                        &format!("[{}] Buy", i + 1),
-                        card_x + card_w - 150.0,
-                        y + 60.0,
-                        20.0,
-                        YELLOW,
-                    );
-                } else {
-                    draw_ui_text(
-                        "Insufficient Funds",
-                        card_x + card_w - 150.0,
-                        y + 60.0,
-                        16.0,
-                        RED,
-                    );
-                }
             }
         }
 
-        let footer = "Press [ENTER] to start next round | Press [ESC] for Menu";
+        let footer =
+            "Number keys buy permanent upgrades | Enter starts next run | Esc returns to menu";
         let footer_w = measure_ui_text(footer, None, 20, 1.0).width;
         draw_ui_text(
             footer,
@@ -370,6 +372,23 @@ fn draw_menu_button(bounds: (f32, f32, f32, f32), label: &str, accent: Color) {
         24.0,
         theme::text_primary(),
     );
+}
+
+fn fit_card_text(text: &str, max_width: f32, font_size: u16) -> String {
+    if measure_ui_text(text, None, font_size, 1.0).width <= max_width {
+        return text.to_string();
+    }
+
+    let mut fitted = text.to_string();
+    while fitted.len() > 4 {
+        fitted.pop();
+        let candidate = format!("{}...", fitted.trim_end());
+        if measure_ui_text(&candidate, None, font_size, 1.0).width <= max_width {
+            return candidate;
+        }
+    }
+
+    "...".to_string()
 }
 
 fn draw_texture_cover(texture: &Texture2D, dest: Rect) {

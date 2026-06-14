@@ -1,39 +1,57 @@
 [
     {
+        "id": "reactor_bootstrap",
+        "name": "Reactor Bootstrap",
+        "description": "Starts each run with 2 additional reactor repair points restored per level.",
+        "base_cost": 120,
+        "cost_multiplier": 1.65,
+        "max_level": 4,
+        "category": "Restoration"
+    },
+    {
+        "id": "restoration_permit",
+        "name": "Recovery Permit",
+        "description": "Starts each run with 2 extra non-core system repair points restored per level.",
+        "base_cost": 180,
+        "cost_multiplier": 1.7,
+        "max_level": 8,
+        "category": "Restoration"
+    },
+    {
         "id": "scrap_efficiency",
         "name": "Scrap Magnet",
-        "description": "Increases scrap yields from gathered piles by 20% per level.",
+        "description": "Adds starting scrap and increases scavenged scrap yields by 20% per level.",
         "base_cost": 100,
         "cost_multiplier": 1.5,
         "max_level": 5,
         "category": "Economy"
     },
     {
+        "id": "expanded_hold",
+        "name": "Expanded Hold",
+        "description": "Increases scrap storage by 120 per level so richer repair runs waste less salvage.",
+        "base_cost": 140,
+        "cost_multiplier": 1.55,
+        "max_level": 5,
+        "category": "Economy"
+    },
+    {
         "id": "credit_bonus",
-        "name": "Corporate Subsidies",
-        "description": "Increases credit rewards for successful escapes by 25% per level.",
-        "base_cost": 200,
+        "name": "Contract Broker",
+        "description": "Increases successful escape credit payouts by 25% per level.",
+        "base_cost": 220,
         "cost_multiplier": 1.8,
         "max_level": 5,
         "category": "Economy"
     },
     {
-        "id": "targeting_tier",
-        "name": "Advanced Scanner",
-        "description": "Allows targeting larger ships with richer scrap yields. Increases enemy difficulty.",
-        "base_cost": 500,
-        "cost_multiplier": 2.5,
-        "max_level": 3,
-        "category": "Targeting"
-    },
-    {
-        "id": "auto_repairs",
-        "name": "Nano-Robots",
-        "description": "Slowly repairs damaged modules over time. Higher levels repair faster.",
-        "base_cost": 300,
-        "cost_multiplier": 2.0,
-        "max_level": 4,
-        "category": "Robotics"
+        "id": "repair_expertise",
+        "name": "Field Engineering",
+        "description": "Reduces manual repair costs by 1 scrap per level. Repairs still require player choice.",
+        "base_cost": 160,
+        "cost_multiplier": 1.65,
+        "max_level": 5,
+        "category": "Restoration"
     },
     {
         "id": "hull_reinforcement",
@@ -43,5 +61,14 @@
         "cost_multiplier": 1.6,
         "max_level": 10,
         "category": "Defense"
+    },
+    {
+        "id": "targeting_tier",
+        "name": "High-Value Contacts",
+        "description": "Finds richer contracts with stronger nanite response. Optional risk-reward scaling.",
+        "base_cost": 500,
+        "cost_multiplier": 2.5,
+        "max_level": 3,
+        "category": "Contracts"
     }
 ]

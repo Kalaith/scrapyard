@@ -16,11 +16,16 @@ const PROMPT_HEIGHT: f32 = 58.0;
 const BOTTOM_HUD_EDGE: f32 = 675.0;
 const BOTTOM_STACK_MARGIN: f32 = 180.0;
 const ACTION_STACK_GAP: f32 = 8.0;
+const ROUTE_PANEL_X: f32 = 12.0;
+const ROUTE_PANEL_Y: f32 = 92.0;
+const ROUTE_PANEL_W: f32 = 286.0;
+const ROUTE_ROW_H: f32 = 28.0;
 
 impl Renderer {
     pub fn draw_ship_ui(&self, state: &GameState) {
         self.draw_top_status_bar(state);
         self.draw_powered_system_strip(state);
+        self.draw_power_routing_panel(state);
 
         if !state.enemies.is_empty() {
             self.draw_compact_radar(state);
@@ -76,6 +81,13 @@ impl Renderer {
             power_color(state),
             142.0,
         );
+        x = draw_status_item(
+            x,
+            "SIGNAL",
+            &state.threat_signature.to_string(),
+            signature_color(state.threat_signature),
+            116.0,
+        );
 
         let alert_pct = (state.nanite_alert / 50.0).clamp(0.0, 1.0);
         draw_ui_text("ALERT", x, 25.0, 16.0, alert_color(alert_pct));
@@ -102,7 +114,7 @@ impl Renderer {
             .interior
             .rooms
             .iter()
-            .filter(|room| should_show_system(room) && room.repaired_count() > 0)
+            .filter(|room| should_show_system(room) && room.powered)
         {
             draw_system_chip(room, x, y);
             x += 34.0;
@@ -149,7 +161,12 @@ impl Renderer {
     }
 
     fn draw_system_details(&self, state: &GameState) {
-        let rect = Rect::new(SAFE_MARGIN, HUD_HEIGHT + 42.0, 260.0, 212.0);
+        let rect = Rect::new(
+            ROUTE_PANEL_X + ROUTE_PANEL_W + 12.0,
+            HUD_HEIGHT + 42.0,
+            260.0,
+            212.0,
+        );
         panels::draw_panel(rect, "SYSTEMS", theme::text_primary());
 
         let mut y = rect.y + 50.0;
@@ -164,6 +181,41 @@ impl Renderer {
             }
             draw_system_detail_row(state, room, rect.x + 12.0, y);
             y += 24.0;
+        }
+    }
+
+    fn draw_power_routing_panel(&self, state: &GameState) {
+        let route_indices = state.routeable_room_indices();
+        let rows = route_indices.len().max(1) as f32;
+        let rect = Rect::new(
+            ROUTE_PANEL_X,
+            ROUTE_PANEL_Y,
+            ROUTE_PANEL_W,
+            84.0 + rows * ROUTE_ROW_H,
+        );
+        panels::draw_panel(rect, "POWER ROUTING", theme::cyan());
+
+        let payout = state.calculate_payout();
+        draw_ui_text(
+            &format!("VALUE {} CR", payout.total),
+            rect.x + 12.0,
+            rect.y + 42.0,
+            14.0,
+            theme::warning(),
+        );
+        draw_ui_text(
+            &format!("SIGNAL {}", state.threat_signature),
+            rect.x + 150.0,
+            rect.y + 42.0,
+            14.0,
+            signature_color(state.threat_signature),
+        );
+
+        let mut y = rect.y + 64.0;
+        for (slot, room_idx) in route_indices.iter().enumerate() {
+            let room = &state.interior.rooms[*room_idx];
+            draw_route_row(state, room, slot, rect.x + 10.0, y, rect.w - 20.0);
+            y += ROUTE_ROW_H;
         }
     }
 
@@ -191,9 +243,9 @@ impl Renderer {
         let mut actions = Vec::new();
         if let Some((room_idx, point_idx)) = active_repair_target(state) {
             actions.push(("E", "Repair", theme::warning()));
-            if let Some((_, power_cost)) = state.get_repair_cost(room_idx, point_idx) {
-                if power_cost > 0 && state.used_power + power_cost <= state.total_power {
-                    actions.push(("AUTO", "Route Power", theme::success()));
+            if let Some((_, power_draw)) = state.get_repair_cost(room_idx, point_idx) {
+                if power_draw > 0 {
+                    actions.push(("1-8", "Route", theme::success()));
                 }
             }
         }
@@ -256,6 +308,52 @@ fn draw_system_detail_row(state: &GameState, room: &Room, x: f32, y: f32) {
     draw_ui_text(status.0, x + 184.0, y, 13.0, status.1);
 }
 
+fn draw_route_row(state: &GameState, room: &Room, slot: usize, x: f32, y: f32, w: f32) {
+    let repaired = room.repaired_count();
+    let total = room.repair_points.len().max(1);
+    let draw = GameState::room_power_need(room);
+    let can_power = repaired > 0 && (room.powered || state.used_power + draw <= state.total_power);
+    let color = if room.powered {
+        theme::success()
+    } else if repaired == 0 {
+        theme::danger()
+    } else if can_power {
+        theme::warning()
+    } else {
+        theme::text_muted()
+    };
+    let bg = if room.powered {
+        color_u8!(12, 34, 23, 218)
+    } else {
+        color_u8!(5, 9, 12, 190)
+    };
+
+    draw_rectangle(x, y - 18.0, w, 24.0, bg);
+    draw_rectangle_lines(x, y - 18.0, w, 24.0, 1.0, color);
+    draw_ui_text(&(slot + 1).to_string(), x + 8.0, y, 14.0, color);
+    draw_ui_text(route_label(room), x + 30.0, y, 13.0, theme::text_primary());
+    panels::draw_segmented_bar(
+        Rect::new(x + 116.0, y - 10.0, 58.0, 7.0),
+        repaired as f32 / total as f32,
+        total,
+        color,
+    );
+    draw_ui_text(
+        &format!("{}P", draw),
+        x + 184.0,
+        y,
+        13.0,
+        theme::text_muted(),
+    );
+    draw_ui_text(
+        route_state_label(room, can_power),
+        x + 224.0,
+        y,
+        13.0,
+        color,
+    );
+}
+
 fn draw_action_chip(rect: Rect, key: &str, label: &str, color: Color) {
     draw_rectangle(rect.x, rect.y, rect.w, rect.h, color_u8!(0, 0, 0, 170));
     draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 1.0, color);
@@ -272,25 +370,25 @@ fn draw_action_chip(rect: Rect, key: &str, label: &str, color: Color) {
 fn prompt_text(state: &GameState) -> (&'static str, String, Color) {
     if let Some((room_idx, point_idx)) = active_repair_target(state) {
         let room = &state.interior.rooms[room_idx];
-        let (scrap_cost, power_cost) = state.get_repair_cost(room_idx, point_idx).unwrap_or((0, 0));
-        let can_repair = state.resources.scrap >= scrap_cost
-            && (power_cost == 0 || state.used_power + power_cost <= state.total_power);
+        let (scrap_cost, power_draw) = state.get_repair_cost(room_idx, point_idx).unwrap_or((0, 0));
+        let can_repair = state.resources.scrap >= scrap_cost;
         let body = if can_repair {
-            let cost = if power_cost > 0 {
-                format!("{scrap_cost} scrap and {power_cost} power")
+            let route_note = if power_draw > 0 {
+                format!(" Route draw after repair: {}P.", power_draw + 1)
             } else {
-                format!("{scrap_cost} scrap")
+                String::new()
             };
             format!(
-                "Press E to repair {} point {} for {}.",
+                "Press E to repair {} point {} for {} scrap.{}",
                 room.name(),
                 point_idx + 1,
-                cost
+                scrap_cost,
+                route_note
             )
         } else if state.resources.scrap < scrap_cost {
             format!("Need {} scrap to repair {}.", scrap_cost, room.name())
         } else {
-            "Need more reactor power before repairing this system.".to_string()
+            "Repair unavailable.".to_string()
         };
         return (
             "REPAIR",
@@ -322,24 +420,32 @@ fn prompt_text(state: &GameState) -> (&'static str, String, Color) {
 
 fn current_objective(state: &GameState) -> &'static str {
     if !room_repaired_any(state, RoomType::Module(ModuleType::Core)) {
-        "Restore reactor power."
+        "Patch the reactor to create power capacity."
+    } else if state.used_power == 0 {
+        "Repair a system, then route power with the panel."
     } else if !room_fully_repaired(state, RoomType::Module(ModuleType::Engine)) {
-        "Repair engines so escape can begin."
+        "Repair more systems for payout, or prepare the engine."
     } else if state.engine_state == EngineState::Charging {
         "Survive until the escape timer completes."
     } else {
-        "Engines are ready. Prepare for escape."
+        "Route power to the engine when ready to launch."
     }
 }
 
 fn tutorial_prompt(id: &str, fallback: &str) -> String {
     match id {
         "welcome" => "Move with WASD. Repair orange points with E.".to_string(),
-        "repair_reactor" => "Repair the reactor first to restore usable power.".to_string(),
-        "repair_shields" => "Repair shields next so the ship can survive attacks.".to_string(),
-        "repair_weapon" => "Repair a weapon so the ship can fight back.".to_string(),
-        "repair_engine" => "Repair the engine to begin escape charging.".to_string(),
-        "complete" => "Systems online. Press TAB for exterior view and survive.".to_string(),
+        "repair_reactor" => "Patch reactor points to create routing capacity.".to_string(),
+        "choose_power" => {
+            "Choose what to power: weapons earn scrap, shields buy time, support improves payout."
+                .to_string()
+        }
+        "repair_engine" => {
+            "Repair and power the engine only when the value is worth the attack.".to_string()
+        }
+        "complete" => {
+            "Stay for more payout or launch before the signal overwhelms you.".to_string()
+        }
         _ => fallback.replace('\n', " "),
     }
 }
@@ -383,17 +489,19 @@ fn room_status(state: &GameState, room: &Room) -> (&'static str, Color) {
     let repaired = room.repaired_count();
     if repaired == 0 {
         ("DAMAGED", theme::danger())
+    } else if room.powered || room.room_type == RoomType::Module(ModuleType::Core) {
+        ("POWERED", theme::success())
     } else if room.is_fully_repaired() {
-        ("WORKING", theme::success())
+        ("READY", theme::warning())
     } else {
-        ("PARTIAL", theme::warning())
+        ("OFFLINE", theme::text_muted())
     }
 }
 
 fn system_state_color(room: &Room) -> Color {
     if room.repaired_count() == 0 {
         theme::danger()
-    } else if room.is_fully_repaired() {
+    } else if room.powered || room.room_type == RoomType::Module(ModuleType::Core) {
         theme::success()
     } else {
         theme::warning()
@@ -407,10 +515,34 @@ fn system_code(room: &Room) -> &'static str {
         RoomType::Module(ModuleType::Defense) => "S",
         RoomType::Module(ModuleType::Engine) => "E",
         RoomType::Module(ModuleType::Utility) => "U",
-        RoomType::Cockpit => "C",
+        RoomType::Cockpit => "L",
         RoomType::Medbay => "M",
         RoomType::Storage => "H",
         _ => "?",
+    }
+}
+
+fn route_label(room: &Room) -> &'static str {
+    match room.room_type {
+        RoomType::Module(ModuleType::Weapon) => "WEAPONS",
+        RoomType::Module(ModuleType::Defense) => "SHIELDS",
+        RoomType::Module(ModuleType::Utility) => "RECYCLER",
+        RoomType::Module(ModuleType::Engine) => "ENGINE",
+        RoomType::Cockpit => "LIFE SUP",
+        RoomType::Medbay => "MEDBAY",
+        _ => room.name(),
+    }
+}
+
+fn route_state_label(room: &Room, can_power: bool) -> &'static str {
+    if room.powered {
+        "ON"
+    } else if room.repaired_count() == 0 {
+        "FIX"
+    } else if can_power {
+        "OFF"
+    } else {
+        "NO PWR"
     }
 }
 
@@ -433,6 +565,16 @@ fn hull_color(state: &GameState) -> Color {
     }
 }
 
+fn signature_color(signature: i32) -> Color {
+    if signature >= WAVE_T3_POWER {
+        theme::danger()
+    } else if signature >= WAVE_T1_POWER {
+        theme::warning()
+    } else {
+        theme::success()
+    }
+}
+
 fn alert_color(alert_pct: f32) -> Color {
     if alert_pct > 0.66 {
         theme::danger()
@@ -452,6 +594,10 @@ fn engine_status(state: &GameState) -> (&'static str, Color) {
         ("STRAINED", theme::warning())
     } else if state.engine_state == EngineState::Charging {
         ("CHARGING", theme::cyan())
+    } else if room_fully_repaired(state, RoomType::Module(ModuleType::Engine))
+        && !state.engine_powered()
+    {
+        ("ROUTE", theme::warning())
     } else if room_fully_repaired(state, RoomType::Module(ModuleType::Engine)) {
         ("READY", theme::cyan())
     } else {

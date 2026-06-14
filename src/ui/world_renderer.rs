@@ -101,13 +101,13 @@ impl Renderer {
             }
 
             if !room.name().is_empty() {
-                draw_rectangle(
-                    rx,
-                    ry,
-                    room.width,
-                    room.height,
-                    theme::room_glow(room.room_type),
-                );
+                let glow = if room.powered || room.room_type == RoomType::Module(ModuleType::Core) {
+                    let color = theme::system_color(room.room_type);
+                    Color::new(color.r, color.g, color.b, 0.28)
+                } else {
+                    theme::room_glow(room.room_type)
+                };
+                draw_rectangle(rx, ry, room.width, room.height, glow);
             }
 
             // Draw walls (top edge) using tile_wall_tech if room above is empty?
@@ -235,7 +235,16 @@ impl Renderer {
             let name = room.name();
             if !name.is_empty() {
                 let text_size = 18.0;
-                let text_w = measure_ui_text(name, None, text_size as u16, 1.0).width;
+                let status = if room.powered || room.room_type == RoomType::Module(ModuleType::Core)
+                {
+                    " ON"
+                } else if room.repaired_count() > 0 {
+                    " OFF"
+                } else {
+                    ""
+                };
+                let label = format!("{name}{status}");
+                let text_w = measure_ui_text(&label, None, text_size as u16, 1.0).width;
                 draw_rectangle(
                     rx + (room.width - text_w) / 2.0 - 8.0,
                     ry + 6.0,
@@ -244,7 +253,7 @@ impl Renderer {
                     color_u8!(0, 0, 0, 150),
                 );
                 draw_ui_text(
-                    name,
+                    &label,
                     rx + (room.width - text_w) / 2.0,
                     ry + 24.0,
                     text_size,
@@ -382,7 +391,7 @@ impl Renderer {
         let base_range = state.module_registry.get(ModuleType::Weapon).range;
 
         for room in &state.interior.rooms {
-            if room.room_type == RoomType::Module(ModuleType::Weapon) {
+            if room.room_type == RoomType::Module(ModuleType::Weapon) && room.powered {
                 if !room.repair_points.is_empty() {
                     let repaired = room.repaired_count();
                     if repaired > 0 {

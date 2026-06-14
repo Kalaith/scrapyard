@@ -20,46 +20,17 @@ impl GameState {
                     self.update_power();
                     self.update_resources();
                     self.update_engine(dt, events);
-                    crate::enemy::ai::update_wave_logic(
-                        self.total_power,
-                        &self.engine_state,
-                        &mut self.enemies,
-                        &self.upgrades,
-                        &mut self.wave_state,
-                        self.frame_count,
-                        dt,
-                        events,
-                    );
+                    crate::enemy::ai::update_wave_logic(self, dt, events);
                     crate::enemy::ai::update_enemies(self, dt);
                     crate::enemy::combat::update_combat(self, dt, events);
                     self.frame_count += 1;
                     self.time_survived += dt;
 
-                    self.update_auto_repair(dt);
+                    self.update_support_systems(dt);
                     self.check_game_over(events);
                 }
             }
             _ => {}
-        }
-    }
-
-    fn update_auto_repair(&mut self, dt: f32) {
-        let robotics_level = self.upgrades.get_level("auto_repairs");
-        self.repair_timer += dt;
-        if self.repair_timer >= NANO_REPAIR_INTERVAL_SECONDS {
-            self.repair_timer = 0.0;
-            let repair_amount = robotics_level as f32 * NANO_REPAIR_RATE_PER_LEVEL;
-            for x in 0..GRID_WIDTH {
-                for y in 0..GRID_HEIGHT {
-                    if let Some(module) = &mut self.ship.grid[x][y] {
-                        if module.state != ModuleState::Destroyed
-                            && module.health < module.max_health
-                        {
-                            module.health = (module.health + repair_amount).min(module.max_health);
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -71,26 +42,102 @@ impl GameState {
                 continue;
             }
             let repaired = room.repaired_count() as i32;
-            if repaired > 0 {
-                match room.room_type {
-                    RoomType::Module(ModuleType::Core) => {
-                        self.total_power += repaired * POWER_PER_CORE_POINT
-                    }
-                    RoomType::Module(ModuleType::Weapon) => {
-                        self.used_power += repaired * POWER_COST_WEAPON
-                    }
-                    RoomType::Module(ModuleType::Defense) => {
-                        self.used_power += repaired * POWER_COST_DEFENSE
-                    }
-                    RoomType::Module(ModuleType::Utility) => {
-                        self.used_power += repaired * POWER_COST_UTILITY
-                    }
-                    RoomType::Module(ModuleType::Engine) => {
-                        self.used_power += repaired * POWER_COST_ENGINE
-                    }
-                    RoomType::Cockpit => self.used_power += repaired * POWER_COST_COCKPIT,
-                    RoomType::Medbay => self.used_power += repaired * POWER_COST_MEDBAY,
-                    _ => {}
+            if repaired == 0 {
+                continue;
+            }
+            match room.room_type {
+                RoomType::Module(ModuleType::Core) => {
+                    self.total_power += repaired * POWER_PER_CORE_POINT
+                }
+                _ => self.used_power += Self::active_room_power_draw(room),
+            }
+        }
+
+        if self.used_power > self.total_power {
+            self.shed_power_to_capacity();
+            self.used_power = 0;
+            for room in &self.interior.rooms {
+                if room.repair_points.is_empty()
+                    || room.repaired_count() == 0
+                    || matches!(room.room_type, RoomType::Module(ModuleType::Core))
+                {
+                    continue;
+                }
+                self.used_power += Self::active_room_power_draw(room);
+            }
+        }
+
+        self.threat_signature = self.calculate_threat_signature();
+        self.sync_module_states();
+    }
+
+    fn shed_power_to_capacity(&mut self) {
+        let mut indices = self.routeable_room_indices();
+        indices.sort_by_key(|idx| shutdown_priority(self.interior.rooms[*idx].room_type));
+
+        for idx in indices {
+            if self.used_power <= self.total_power {
+                break;
+            }
+            if self.interior.rooms[idx].powered {
+                let draw = Self::room_power_need(&self.interior.rooms[idx]);
+                self.interior.rooms[idx].powered = false;
+                self.used_power = (self.used_power - draw).max(0);
+            }
+        }
+    }
+
+    fn calculate_threat_signature(&self) -> i32 {
+        let mut signature = self.used_power;
+        if self.recycler_online() {
+            signature += RECYCLER_SIGNATURE_BONUS;
+        }
+        if self.engine_state == EngineState::Charging {
+            signature += ENGINE_CHARGE_SIGNATURE_BONUS;
+        }
+        if !self.life_support_online() && self.used_power > 0 {
+            signature += LIFE_SUPPORT_OFFLINE_SIGNATURE;
+        }
+        let repaired_value = self
+            .interior
+            .rooms
+            .iter()
+            .filter(|room| !room.name().is_empty() && room.is_fully_repaired())
+            .count() as i32
+            * PAYOUT_FULL_REPAIR_BONUS;
+        let reserve_value = self.resources.scrap / PAYOUT_SCRAP_DIVISOR;
+        let combat_value = self.enemies_destroyed * PAYOUT_ENEMY_DESTROYED_BONUS;
+        signature +=
+            ((repaired_value + reserve_value + combat_value) / HIGH_VALUE_SIGNATURE_DIVISOR).max(0);
+        signature
+    }
+
+    fn sync_module_states(&mut self) {
+        for room in &self.interior.rooms {
+            let Some((gx, gy)) = room.module_index else {
+                continue;
+            };
+            let Some(cell) = self.ship.grid.get_mut(gx).and_then(|row| row.get_mut(gy)) else {
+                continue;
+            };
+            let Some(module) = cell else {
+                continue;
+            };
+
+            if let RoomType::Module(module_type) = room.room_type {
+                if module.module_type == ModuleType::Empty {
+                    module.module_type = module_type;
+                }
+                let repaired = room.repaired_count();
+                module.state = if repaired == 0 {
+                    ModuleState::Destroyed
+                } else if room.powered || module_type == ModuleType::Core {
+                    ModuleState::Active
+                } else {
+                    ModuleState::Offline
+                };
+                if repaired > 0 && module.health <= 0.0 {
+                    module.health = module.max_health;
                 }
             }
         }
@@ -99,6 +146,7 @@ impl GameState {
     fn check_game_over(&mut self, events: &mut EventBus) {
         if self.ship_integrity <= 0.0 {
             self.ship_integrity = 0.0;
+            self.last_payout = Some(self.calculate_failure_payout());
             self.phase = GamePhase::GameOver;
             events.push_game(GameEvent::CoreDestroyed);
         }
@@ -106,6 +154,24 @@ impl GameState {
 
     fn update_resources(&mut self) {
         // Power calculation is handled by update_power() - interior-based system only
+    }
+
+    fn update_support_systems(&mut self, dt: f32) {
+        if self.life_support_online() || self.used_power == 0 {
+            self.life_support_timer = 0.0;
+        } else {
+            self.life_support_timer += dt;
+            if self.life_support_timer > LIFE_SUPPORT_GRACE_SECONDS {
+                self.ship_integrity -= LIFE_SUPPORT_OFFLINE_DAMAGE_PER_SEC * dt;
+                self.engine_stress += 0.25 * dt;
+            }
+        }
+
+        if self.medbay_online() {
+            self.ship_integrity = (self.ship_integrity + MEDBAY_HULL_REPAIR_PER_SEC * dt)
+                .min(self.ship_max_integrity);
+            self.engine_stress = (self.engine_stress - MEDBAY_STRESS_RELIEF_PER_SEC * dt).max(0.0);
+        }
     }
 
     fn update_engine(&mut self, dt: f32, events: &mut EventBus) {
@@ -119,7 +185,7 @@ impl GameState {
             }
         }
         // Engine Charging Logic with Hysteresis (Safety Shutdown)
-        if engine_repair_pct >= ENGINE_MIN_REPAIR_PERCENT {
+        if engine_repair_pct >= ENGINE_MIN_REPAIR_PERCENT && self.engine_powered() {
             match self.engine_state {
                 EngineState::Idle => {
                     // Only start charging if we have cooled down sufficently (Hysteresis)
@@ -163,10 +229,14 @@ impl GameState {
                 if self.escape_timer <= 0.0 {
                     self.engine_state = EngineState::Escaped;
                     self.phase = GamePhase::Victory;
-                    let bonus_mult = 1.0
-                        + (self.upgrades.get_level("credit_bonus") as f32 * CREDIT_BONUS_PER_LEVEL);
-                    let total_credits = (BASE_ESCAPE_CREDITS as f32 * bonus_mult) as i32;
-                    self.resources.add_credits(total_credits);
+                    let payout = self.calculate_payout();
+                    self.profile
+                        .record_victory(payout.total, self.time_survived);
+                    if let Err(error) = self.profile.save() {
+                        eprintln!("Failed to save profile after victory: {error}");
+                    }
+                    self.resources.credits = self.profile.banked_credits;
+                    self.last_payout = Some(payout);
                     events.push_game(GameEvent::EscapeSuccess);
                 }
             }
@@ -193,5 +263,17 @@ impl GameState {
                 self.escape_timer += dt * 5.0; // Reverse progress significantly
             }
         }
+    }
+}
+
+fn shutdown_priority(room_type: RoomType) -> i32 {
+    match room_type {
+        RoomType::Module(ModuleType::Utility) => 0,
+        RoomType::Medbay => 1,
+        RoomType::Cockpit => 2,
+        RoomType::Module(ModuleType::Defense) => 3,
+        RoomType::Module(ModuleType::Weapon) => 4,
+        RoomType::Module(ModuleType::Engine) => 5,
+        _ => 6,
     }
 }

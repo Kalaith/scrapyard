@@ -4,6 +4,8 @@
 pub struct WaveState {
     pub spawn_timer: f32,
     pub guard_timer: f32,
+    pub leech_timer: f32,
+    pub siege_timer: f32,
 }
 
 impl WaveState {
@@ -11,12 +13,16 @@ impl WaveState {
         Self {
             spawn_timer: 0.0,
             guard_timer: 0.0,
+            leech_timer: 0.0,
+            siege_timer: 0.0,
         }
     }
 
     pub fn update(&mut self, dt: f32) {
         self.spawn_timer += dt;
         self.guard_timer += dt;
+        self.leech_timer += dt;
+        self.siege_timer += dt;
     }
 
     pub fn reset_spawn_timer(&mut self) {
@@ -25,5 +31,13 @@ impl WaveState {
 
     pub fn reset_guard_timer(&mut self) {
         self.guard_timer = 0.0;
+    }
+
+    pub fn reset_leech_timer(&mut self) {
+        self.leech_timer = 0.0;
+    }
+
+    pub fn reset_siege_timer(&mut self) {
+        self.siege_timer = 0.0;
     }
 }

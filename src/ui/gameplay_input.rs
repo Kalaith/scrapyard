@@ -39,6 +39,8 @@ impl InputManager {
             return;
         }
 
+        self.handle_power_routing_input(input, state, events);
+
         // View-specific input
         if state.view_mode == ViewMode::Interior {
             self.handle_interior_input(input, state, events);
@@ -223,6 +225,39 @@ impl InputManager {
         }
     }
 
+    fn handle_power_routing_input(
+        &self,
+        input: &InputState,
+        state: &mut GameState,
+        events: &mut EventBus,
+    ) {
+        let keys = [
+            KeyCode::Key1,
+            KeyCode::Key2,
+            KeyCode::Key3,
+            KeyCode::Key4,
+            KeyCode::Key5,
+            KeyCode::Key6,
+            KeyCode::Key7,
+            KeyCode::Key8,
+        ];
+
+        for (slot, key) in keys.iter().enumerate() {
+            if is_key_pressed(*key) && state.toggle_route_slot(slot, events) {
+                state.advance_tutorial_after_power_route();
+                return;
+            }
+        }
+
+        if input.left_click {
+            if let Some(slot) = route_slot_at(input.mouse_pos) {
+                if state.toggle_route_slot(slot, events) {
+                    state.advance_tutorial_after_power_route();
+                }
+            }
+        }
+    }
+
     fn handle_scrap_gathering(&self, state: &mut GameState, events: &mut EventBus) {
         // Cancel gathering if not holding E or moving
         if !is_key_down(KeyCode::E) || state.player.velocity.length() >= 0.1 {
@@ -316,14 +351,23 @@ impl InputManager {
             return;
         };
 
-        // Advance tutorial when player repairs ANY point in the target room
-        // This gives immediate positive feedback instead of requiring full room completion
-        let Some(target) = state.tutorial_state.target_room(&state.tutorial_config) else {
-            return;
-        };
-        let room = &state.interior.rooms[room_idx];
-        if room.id == target {
-            state.tutorial_state.advance(&state.tutorial_config);
-        }
+        state.advance_tutorial_after_repair(room_idx);
+    }
+}
+
+fn route_slot_at(mouse_pos: Vec2) -> Option<usize> {
+    let x = 12.0;
+    let y = 92.0;
+    let w = 286.0;
+    let row_h = 28.0;
+    let first_row_y = y + 46.0;
+    if mouse_pos.x < x || mouse_pos.x > x + w || mouse_pos.y < first_row_y {
+        return None;
+    }
+    let slot = ((mouse_pos.y - first_row_y) / row_h).floor() as usize;
+    if slot < 8 {
+        Some(slot)
+    } else {
+        None
     }
 }

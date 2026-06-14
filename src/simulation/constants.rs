@@ -93,6 +93,13 @@ pub const PAYOUT_SIGNATURE_BONUS: i32 = 12;
 pub const PAYOUT_MAX_RISK_BONUS: i32 = 240;
 pub const PAYOUT_ENGINE_STRESS_PENALTY_PER_POINT: i32 = 4;
 
+// Persistent upgrade effects
+pub const META_STARTING_SCRAP_PER_LEVEL: i32 = 15;
+pub const META_REACTOR_POINTS_PER_LEVEL: usize = 2;
+pub const META_RESTORED_POINTS_PER_LEVEL: usize = 2;
+pub const META_STORAGE_PER_LEVEL: i32 = 120;
+pub const META_REPAIR_DISCOUNT_PER_LEVEL: i32 = 1;
+
 // Interaction
 pub const INTERACTION_RANGE: f32 = 40.0;
 pub const GATHERING_TIME_SECONDS: f32 = 2.0;
@@ -101,10 +108,6 @@ pub const LIFE_SUPPORT_GRACE_SECONDS: f32 = 8.0;
 pub const LIFE_SUPPORT_OFFLINE_DAMAGE_PER_SEC: f32 = 4.0;
 pub const MEDBAY_HULL_REPAIR_PER_SEC: f32 = 5.0;
 pub const MEDBAY_STRESS_RELIEF_PER_SEC: f32 = 2.5;
-
-// Nano-robots
-pub const NANO_REPAIR_RATE_PER_LEVEL: f32 = 2.0;
-pub const NANO_REPAIR_INTERVAL_SECONDS: f32 = 2.0;
 
 // Engine system
 pub const ENGINE_CHARGE_BASE_TIME: f32 = 60.0;

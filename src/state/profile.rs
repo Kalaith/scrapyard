@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io;
 
+use crate::economy::upgrades::UpgradeTemplate;
+
 const PROFILE_PATH: &str = "player_profile.json";
 #[cfg(target_arch = "wasm32")]
 const GAME_NAME: &str = "scrapyard";
@@ -72,6 +74,29 @@ impl PlayerProfile {
         } else {
             false
         }
+    }
+
+    pub fn upgrade_level(&self, upgrade_id: &str) -> u32 {
+        *self.permanent_upgrades.get(upgrade_id).unwrap_or(&0)
+    }
+
+    pub fn upgrade_cost(&self, template: &UpgradeTemplate) -> i32 {
+        let level = self.upgrade_level(&template.id);
+        (template.base_cost as f32 * template.cost_multiplier.powi(level as i32)) as i32
+    }
+
+    pub fn purchase_upgrade(&mut self, template: &UpgradeTemplate) -> bool {
+        let current_level = self.upgrade_level(&template.id);
+        if current_level >= template.max_level {
+            return false;
+        }
+        let cost = self.upgrade_cost(template);
+        if !self.spend_credits(cost) {
+            return false;
+        }
+        self.permanent_upgrades
+            .insert(template.id.clone(), current_level + 1);
+        true
     }
 }
 

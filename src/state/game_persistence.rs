@@ -78,10 +78,18 @@ impl GameState {
                 .iter()
                 .map(|room| room.repair_points.iter().map(|rp| rp.repaired).collect())
                 .collect(),
+            room_power_states: self
+                .interior
+                .rooms
+                .iter()
+                .map(|room| room.powered)
+                .collect(),
             player_pos: (self.player.position.x, self.player.position.y),
             view_mode: self.view_mode,
             tutorial_index: self.tutorial_state.current_index,
             tutorial_completed: self.tutorial_state.completed,
+            life_support_timer: self.life_support_timer,
+            enemies_destroyed: self.enemies_destroyed,
         };
         macroquad_toolkit::persistence::save_json_atomic(path, &save_data).map_err(to_io_error)
     }
@@ -157,6 +165,14 @@ impl GameState {
                 }
             }
         }
+        for (room_idx, powered) in save_data.room_power_states.into_iter().enumerate() {
+            if room_idx < state.interior.rooms.len() {
+                state.interior.rooms[room_idx].powered = powered;
+            }
+        }
+        state.life_support_timer = save_data.life_support_timer;
+        state.enemies_destroyed = save_data.enemies_destroyed;
+        state.update_power();
 
         // Restore player position
         state.player.position = vec2(save_data.player_pos.0, save_data.player_pos.1);

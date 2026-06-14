@@ -27,6 +27,9 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
         if room.room_type != RoomType::Module(ModuleType::Weapon) {
             continue;
         }
+        if !room.powered {
+            continue;
+        }
 
         // Skip if no repair points
         if room.repair_points.is_empty() {
@@ -124,6 +127,8 @@ fn find_nearest_enemy(enemies: &[Enemy], pos: Vec2, range: f32) -> Option<Vec2> 
 }
 
 fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
+    let kill_scrap_multiplier = state.kill_scrap_multiplier();
+
     // 1. Move projectiles first
     for proj in &mut state.projectiles {
         proj.position += proj.velocity * dt;
@@ -208,8 +213,10 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
                                     EnemyType::SiegeConstruct => 25,
                                     EnemyType::Boss => 100,
                                 };
+                                let scrap = (scrap as f32 * kill_scrap_multiplier) as i32;
                                 state.resources.add_scrap(scrap);
                                 state.resources.credits += scrap / 2;
+                                state.enemies_destroyed += 1;
 
                                 events.push_game(GameEvent::EnemyKilled {
                                     x: enemy.position.x,
@@ -242,7 +249,7 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
     // Calculate shield reduction from all shield rooms
     let mut shield_reduction: f32 = 0.0;
     for room in &state.interior.rooms {
-        if room.room_type == RoomType::Module(ModuleType::Defense) {
+        if room.room_type == RoomType::Module(ModuleType::Defense) && room.powered {
             if !room.repair_points.is_empty() {
                 let repair_pct = room.repaired_count() as f32 / room.repair_points.len() as f32;
                 shield_reduction += repair_pct * 0.5; // Each shield room can block up to 50%
@@ -251,6 +258,8 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
     }
     // Cap at 80% damage reduction max
     shield_reduction = shield_reduction.min(0.8);
+
+    update_leech_drains(state, dt, events);
 
     for enemy in &mut state.enemies {
         if enemy.health <= 0.0 {
@@ -301,5 +310,47 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
         if !hit_something {
             enemy.attacking = false;
         }
+    }
+}
+
+fn update_leech_drains(state: &mut GameState, dt: f32, events: &mut EventBus) {
+    let mut drained_targets = Vec::new();
+    let mut hull_drain_count = 0;
+
+    for enemy in &mut state.enemies {
+        if enemy.enemy_type != EnemyType::Leech || enemy.health <= 0.0 {
+            continue;
+        }
+        let Some(target) = enemy.attached_to else {
+            continue;
+        };
+        enemy.ability_timer += dt;
+        if enemy.ability_timer >= 2.0 {
+            enemy.ability_timer = 0.0;
+            drained_targets.push(target);
+        }
+    }
+
+    for target in drained_targets {
+        if let Some(room_idx) = state
+            .interior
+            .rooms
+            .iter()
+            .position(|room| room.module_index == Some(target) && room.powered)
+        {
+            let system = state.interior.rooms[room_idx].name().to_string();
+            state.interior.rooms[room_idx].powered = false;
+            state.update_power();
+            events.push_game(GameEvent::PowerRouted {
+                system,
+                powered: false,
+            });
+        } else {
+            hull_drain_count += 1;
+        }
+    }
+
+    if hull_drain_count > 0 {
+        state.ship_integrity -= ENEMY_LEECH_DAMAGE * hull_drain_count as f32 * dt;
     }
 }

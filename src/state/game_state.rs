@@ -14,6 +14,7 @@ use crate::ship::ship::Ship;
 use crate::simulation::constants::*;
 use crate::simulation::events::GameEvent;
 use crate::simulation::gameplay::ModuleRegistry;
+use crate::state::profile::PlayerProfile;
 use crate::ui::assets::AssetManager;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
@@ -77,6 +78,7 @@ pub struct GameState {
     pub gathering_timer: f32,
     pub upgrades: GameUpgrades,
     pub upgrade_templates: Vec<UpgradeTemplate>,
+    pub profile: PlayerProfile,
     pub enemies: Vec<Enemy>,
     pub projectiles: Vec<Projectile>,
     pub particles: Vec<Particle>,
@@ -143,6 +145,7 @@ impl GameState {
                     );
                     Vec::new()
                 }),
+            profile: PlayerProfile::load(),
             frame_count: 0,
             time_survived: 0.0,
             wave_state: WaveState::new(),
@@ -159,6 +162,7 @@ impl GameState {
             recent_events: vec!["Systems waiting for repair".to_string()],
         };
 
+        state.sync_upgrades_from_profile();
         state.spawn_scrap_piles();
         state
     }
@@ -168,6 +172,7 @@ impl GameState {
         self.interior = ShipInterior::starter_ship();
         self.resources = Resources::new();
         self.resources.scrap = 50;
+        self.resources.credits = self.profile.banked_credits;
         self.enemies.clear();
         self.projectiles.clear();
         self.particles.clear();
@@ -203,6 +208,7 @@ impl GameState {
         self.recent_events
             .push("New salvage run started".to_string());
 
+        self.apply_meta_progression_to_run();
         self.spawn_scrap_piles();
     }
 

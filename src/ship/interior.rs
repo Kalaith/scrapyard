@@ -199,7 +199,7 @@ impl Room {
             RoomType::Module(ModuleType::Empty) => "",
             RoomType::Corridor => "",
             RoomType::Storage => "STORAGE",
-            RoomType::Cockpit => "COCKPIT",
+            RoomType::Cockpit => "LIFE SUPPORT",
             RoomType::Medbay => "MEDBAY",
             RoomType::Empty => "",
         }

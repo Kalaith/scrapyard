@@ -85,7 +85,8 @@ impl Ship {
         // Corners: More empty slots for expansion
         grid[cx - 1][cy - 1] = Some(Module::new(ModuleType::Empty));
         grid[cx + 1][cy - 1] = Some(Module::new(ModuleType::Empty));
-        grid[cx - 1][cy + 1] = Some(Module::new(ModuleType::Empty));
+        let utility = Module::new(ModuleType::Utility);
+        grid[cx - 1][cy + 1] = Some(utility);
         grid[cx + 1][cy + 1] = Some(Module::new(ModuleType::Empty));
 
         // Engine (far from core, destroyed - needs repair to escape)

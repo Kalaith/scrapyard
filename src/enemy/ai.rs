@@ -6,65 +6,73 @@ use crate::state::{EngineState, GameState};
 use macroquad::prelude::*;
 use macroquad_toolkit::rng;
 
-use crate::enemy::wave::WaveState;
+pub fn update_wave_logic(state: &mut GameState, dt: f32, events: &mut EventBus) {
+    let signature = state.threat_signature;
 
-pub fn update_wave_logic(
-    total_power: i32,
-    engine_state: &EngineState,
-    enemies: &mut Vec<Enemy>,
-    upgrades: &crate::economy::upgrades::GameUpgrades,
-    wave_state: &mut WaveState,
-    frame_count: u64,
-    dt: f32,
-    events: &mut EventBus,
-) {
-    let power_level = total_power;
-
-    // Boss mode: Stop normal spawn when engine is charging or power >= 16
-    if *engine_state == EngineState::Charging {
-        // In boss mode, only spawn boss if not already present
-        let has_boss = enemies.iter().any(|e| e.enemy_type == EnemyType::Boss);
+    if state.engine_state == EngineState::Charging {
+        let has_boss = state
+            .enemies
+            .iter()
+            .any(|e| e.enemy_type == EnemyType::Boss);
         if !has_boss {
-            spawn_boss(enemies, events, frame_count);
+            spawn_boss(&mut state.enemies, events, state.frame_count);
         }
+    }
+
+    state.wave_state.update(dt);
+    if signature < WAVE_GRACE_POWER {
         return;
     }
 
-    // Normal wave logic based on power level per GDD
-    wave_state.update(dt);
-
-    // No enemies spawn until player has enough power (give grace period)
-    if power_level < WAVE_GRACE_POWER {
-        return;
-    }
-
-    let targeting_tier = upgrades.get_level("targeting_tier");
+    let targeting_tier = state.upgrades.get_level("targeting_tier");
     let diff_mult = 1.0 + (targeting_tier as f32 * 0.5);
 
-    let (drone_interval, guard_interval) = if power_level >= WAVE_T3_POWER {
+    let (drone_interval, guard_interval) = if signature >= WAVE_T3_POWER {
         (
             SPAWN_INTERVAL_DRONE_T3 / diff_mult,
             SPAWN_INTERVAL_GUARD_T3 / diff_mult,
         )
-    } else if power_level >= WAVE_T2_POWER {
+    } else if signature >= WAVE_T2_POWER {
         (
             SPAWN_INTERVAL_DRONE_T2 / diff_mult,
             SPAWN_INTERVAL_GUARD_T2 / diff_mult,
         )
-    } else if power_level >= WAVE_T1_POWER {
-        (SPAWN_INTERVAL_DRONE_T1 / diff_mult, f32::MAX)
+    } else if signature >= WAVE_T1_POWER {
+        (
+            SPAWN_INTERVAL_DRONE_T1 / diff_mult,
+            SPAWN_INTERVAL_GUARD_T2 * 1.4,
+        )
     } else {
         (SPAWN_INTERVAL_DRONE_T0 / diff_mult, f32::MAX)
     };
 
-    if wave_state.spawn_timer >= drone_interval {
-        spawn_drone(enemies, frame_count);
-        wave_state.reset_spawn_timer();
+    if state.wave_state.spawn_timer >= drone_interval {
+        spawn_drone(&mut state.enemies, state.frame_count);
+        state.wave_state.reset_spawn_timer();
     }
 
-    if power_level >= 6 && wave_state.guard_timer >= guard_interval {
-        spawn_guard(enemies, frame_count);
-        wave_state.reset_guard_timer();
+    if (state.weapon_powered() || state.defense_powered() || signature >= WAVE_T2_POWER)
+        && state.wave_state.guard_timer >= guard_interval / diff_mult
+    {
+        spawn_guard(&mut state.enemies, state.frame_count);
+        state.wave_state.reset_guard_timer();
+    }
+
+    let support_is_hot =
+        state.recycler_online() || state.medbay_online() || state.life_support_online();
+    if support_is_hot
+        && signature >= WAVE_T1_POWER
+        && state.wave_state.leech_timer >= SPAWN_INTERVAL_LEECH / diff_mult
+    {
+        spawn_leech(&mut state.enemies, state.frame_count);
+        state.wave_state.reset_leech_timer();
+    }
+
+    if (state.engine_powered() || signature >= WAVE_T3_POWER)
+        && state.wave_state.siege_timer >= SPAWN_INTERVAL_SIEGE / diff_mult
+    {
+        spawn_siege(&mut state.enemies, state.frame_count);
+        state.wave_state.reset_siege_timer();
     }
 }
 
@@ -78,6 +86,18 @@ fn spawn_guard(enemies: &mut Vec<Enemy>, frame_count: u64) {
     let pos = random_spawn_position();
     let id = generate_enemy_id(enemies.len(), frame_count);
     enemies.push(Enemy::new(id, EnemyType::Nanoguard, pos));
+}
+
+fn spawn_leech(enemies: &mut Vec<Enemy>, frame_count: u64) {
+    let pos = random_spawn_position();
+    let id = generate_enemy_id(enemies.len(), frame_count);
+    enemies.push(Enemy::new(id, EnemyType::Leech, pos));
+}
+
+fn spawn_siege(enemies: &mut Vec<Enemy>, frame_count: u64) {
+    let pos = random_spawn_position();
+    let id = generate_enemy_id(enemies.len(), frame_count);
+    enemies.push(Enemy::new(id, EnemyType::SiegeConstruct, pos));
 }
 
 pub fn spawn_boss(enemies: &mut Vec<Enemy>, events: &mut EventBus, frame_count: u64) {
