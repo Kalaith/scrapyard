@@ -46,19 +46,21 @@ pub const ENEMY_BOSS_DAMAGE: f32 = 50.0;
 pub const BOSS_ABILITY_COOLDOWN: f32 = 8.0; // Seconds between boss abilities
 pub const BOSS_SPLIT_COUNT: usize = 3; // Number of drones spawned on boss death
 
-// Wave Logic
-pub const WAVE_GRACE_POWER: i32 = 4; // Enemies don't spawn until player has more power
-pub const WAVE_T1_POWER: i32 = 16; // First tier of enemy scaling
-pub const WAVE_T2_POWER: i32 = 24; // Second tier - guards start appearing
-pub const WAVE_T3_POWER: i32 = 40; // Final tier - full assault
+// Wave Logic. These thresholds use routed system signature, not raw reactor capacity.
+pub const WAVE_GRACE_POWER: i32 = 2;
+pub const WAVE_T1_POWER: i32 = 5;
+pub const WAVE_T2_POWER: i32 = 9;
+pub const WAVE_T3_POWER: i32 = 13;
 
-pub const SPAWN_INTERVAL_DRONE_T0: f32 = 15.0; // Much slower initial spawns
+pub const SPAWN_INTERVAL_DRONE_T0: f32 = 14.0; // Much slower initial spawns
 pub const SPAWN_INTERVAL_DRONE_T1: f32 = 8.0; // Still manageable
-pub const SPAWN_INTERVAL_DRONE_T2: f32 = 4.0; // Getting dangerous
-pub const SPAWN_INTERVAL_DRONE_T3: f32 = 2.0; // Intense
+pub const SPAWN_INTERVAL_DRONE_T2: f32 = 5.0; // Getting dangerous
+pub const SPAWN_INTERVAL_DRONE_T3: f32 = 3.0; // Intense
 
-pub const SPAWN_INTERVAL_GUARD_T2: f32 = 20.0; // Guards spawn slower
-pub const SPAWN_INTERVAL_GUARD_T3: f32 = 5.0;
+pub const SPAWN_INTERVAL_GUARD_T2: f32 = 18.0; // Guards spawn slower
+pub const SPAWN_INTERVAL_GUARD_T3: f32 = 8.0;
+pub const SPAWN_INTERVAL_LEECH: f32 = 22.0;
+pub const SPAWN_INTERVAL_SIEGE: f32 = 28.0;
 
 // Power system
 pub const POWER_PER_CORE_POINT: i32 = 1; // Each reactor repair point gives 1 power
@@ -69,14 +71,36 @@ pub const POWER_COST_ENGINE: i32 = 1; // Was 2, now matches other modules
 pub const POWER_COST_COCKPIT: i32 = 1;
 pub const POWER_COST_MEDBAY: i32 = 1;
 
+// Routed system signature
+pub const RECYCLER_SIGNATURE_BONUS: i32 = 2;
+pub const ENGINE_CHARGE_SIGNATURE_BONUS: i32 = 5;
+pub const LIFE_SUPPORT_OFFLINE_SIGNATURE: i32 = 2;
+pub const HIGH_VALUE_SIGNATURE_DIVISOR: i32 = 250;
+
 // Economy
 pub const BASE_ESCAPE_CREDITS: i32 = 500;
 pub const CREDIT_BONUS_PER_LEVEL: f32 = 0.25;
 pub const SCRAP_EFFICIENCY_BONUS: f32 = 0.20;
+pub const RECYCLER_KILL_BONUS: f32 = 0.35;
+
+// Payout
+pub const PAYOUT_FULL_REPAIR_BONUS: i32 = 60;
+pub const PAYOUT_POWERED_SYSTEM_BONUS: i32 = 35;
+pub const PAYOUT_HULL_MAX_BONUS: i32 = 300;
+pub const PAYOUT_ENEMY_DESTROYED_BONUS: i32 = 8;
+pub const PAYOUT_SCRAP_DIVISOR: i32 = 2;
+pub const PAYOUT_SIGNATURE_BONUS: i32 = 12;
+pub const PAYOUT_MAX_RISK_BONUS: i32 = 240;
+pub const PAYOUT_ENGINE_STRESS_PENALTY_PER_POINT: i32 = 4;
 
 // Interaction
 pub const INTERACTION_RANGE: f32 = 40.0;
 pub const GATHERING_TIME_SECONDS: f32 = 2.0;
+pub const LIFE_SUPPORT_REPAIR_DISCOUNT: i32 = 2;
+pub const LIFE_SUPPORT_GRACE_SECONDS: f32 = 8.0;
+pub const LIFE_SUPPORT_OFFLINE_DAMAGE_PER_SEC: f32 = 4.0;
+pub const MEDBAY_HULL_REPAIR_PER_SEC: f32 = 5.0;
+pub const MEDBAY_STRESS_RELIEF_PER_SEC: f32 = 2.5;
 
 // Nano-robots
 pub const NANO_REPAIR_RATE_PER_LEVEL: f32 = 2.0;

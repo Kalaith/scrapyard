@@ -2,6 +2,7 @@ use crate::state::GameState;
 use crate::ui::renderer::Renderer;
 use crate::ui::theme;
 use macroquad::prelude::*;
+use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
 
 impl Renderer {
     pub fn draw_menu(&self, state: &GameState) {
@@ -49,8 +50,8 @@ impl Renderer {
 
     fn draw_fallback_menu_title(&self) {
         let title = "SCRAPYARD PLANET";
-        let title_size = measure_text(title, None, 64, 1.0);
-        draw_text(
+        let title_size = measure_ui_text(title, None, 64, 1.0);
+        draw_ui_text(
             title,
             screen_width() / 2.0 - title_size.width / 2.0,
             screen_height() / 3.0,
@@ -59,8 +60,8 @@ impl Renderer {
         );
 
         let subtitle = "Repair. Defend. Escape.";
-        let sub_size = measure_text(subtitle, None, 24, 1.0);
-        draw_text(
+        let sub_size = measure_ui_text(subtitle, None, 24, 1.0);
+        draw_ui_text(
             subtitle,
             screen_width() / 2.0 - sub_size.width / 2.0,
             screen_height() / 3.0 + 50.0,
@@ -123,8 +124,8 @@ impl Renderer {
         }
 
         let text = "CORE DESTROYED";
-        let size = measure_text(text, None, 64, 1.0);
-        draw_text(
+        let size = measure_ui_text(text, None, 64, 1.0);
+        draw_ui_text(
             text,
             screen_width() / 2.0 - size.width / 2.0,
             screen_height() / 3.0,
@@ -142,8 +143,8 @@ impl Renderer {
         ];
 
         for (i, stat) in stats.iter().enumerate() {
-            let s = measure_text(stat, None, 24, 1.0);
-            draw_text(
+            let s = measure_ui_text(stat, None, 24, 1.0);
+            draw_ui_text(
                 stat,
                 screen_width() / 2.0 - s.width / 2.0,
                 stats_y + i as f32 * 30.0,
@@ -153,8 +154,8 @@ impl Renderer {
         }
 
         let hint = "Press ENTER to return to menu";
-        let hint_size = measure_text(hint, None, 24, 1.0);
-        draw_text(
+        let hint_size = measure_ui_text(hint, None, 24, 1.0);
+        draw_ui_text(
             hint,
             screen_width() / 2.0 - hint_size.width / 2.0,
             screen_height() - 80.0,
@@ -185,8 +186,8 @@ impl Renderer {
         }
 
         let text = "ESCAPE SUCCESSFUL!";
-        let size = measure_text(text, None, 64, 1.0);
-        draw_text(
+        let size = measure_ui_text(text, None, 64, 1.0);
+        draw_ui_text(
             text,
             screen_width() / 2.0 - size.width / 2.0,
             screen_height() / 3.0,
@@ -195,8 +196,8 @@ impl Renderer {
         );
 
         let subtitle = "You made it off the planet!";
-        let sub_size = measure_text(subtitle, None, 28, 1.0);
-        draw_text(
+        let sub_size = measure_ui_text(subtitle, None, 28, 1.0);
+        draw_ui_text(
             subtitle,
             screen_width() / 2.0 - sub_size.width / 2.0,
             screen_height() / 3.0 + 50.0,
@@ -222,8 +223,8 @@ impl Renderer {
         ];
 
         for (i, stat) in stats.iter().enumerate() {
-            let s = measure_text(stat, None, 24, 1.0);
-            draw_text(
+            let s = measure_ui_text(stat, None, 24, 1.0);
+            draw_ui_text(
                 stat,
                 screen_width() / 2.0 - s.width / 2.0,
                 stats_y + i as f32 * 30.0,
@@ -233,8 +234,8 @@ impl Renderer {
         }
 
         let hint = "Press ENTER to continue to Upgrades";
-        let hint_size = measure_text(hint, None, 24, 1.0);
-        draw_text(
+        let hint_size = measure_ui_text(hint, None, 24, 1.0);
+        draw_ui_text(
             hint,
             screen_width() / 2.0 - hint_size.width / 2.0,
             screen_height() - 80.0,
@@ -252,12 +253,12 @@ impl Renderer {
             color_u8!(15, 20, 30, 255),
         );
         let title = "SHIP IMPROVEMENTS";
-        let title_w = measure_text(title, None, 48, 1.0).width;
-        draw_text(title, (screen_width() - title_w) / 2.0, 60.0, 48.0, WHITE);
+        let title_w = measure_ui_text(title, None, 48, 1.0).width;
+        draw_ui_text(title, (screen_width() - title_w) / 2.0, 60.0, 48.0, WHITE);
 
         let credits_text = format!("AVAILABLE CREDITS: {}", state.resources.credits);
-        let cred_w = measure_text(&credits_text, None, 24, 1.0).width;
-        draw_text(
+        let cred_w = measure_ui_text(&credits_text, None, 24, 1.0).width;
+        draw_ui_text(
             &credits_text,
             (screen_width() - cred_w) / 2.0,
             100.0,
@@ -289,7 +290,7 @@ impl Renderer {
                 .with_border(2.0, if can_afford { YELLOW } else { GRAY });
             macroquad_toolkit::ui::draw_surface(Rect::new(card_x, y, card_w, card_h), &surface);
 
-            draw_text(
+            draw_ui_text(
                 &format!(
                     "{} (Level {}/{})",
                     template.name, current_level, template.max_level
@@ -299,13 +300,13 @@ impl Renderer {
                 24.0,
                 WHITE,
             );
-            draw_text(&template.description, card_x + 15.0, y + 55.0, 16.0, GRAY);
+            draw_ui_text(&template.description, card_x + 15.0, y + 55.0, 16.0, GRAY);
 
             if is_max {
-                draw_text("MAX LEVEL", card_x + card_w - 120.0, y + 45.0, 20.0, GREEN);
+                draw_ui_text("MAX LEVEL", card_x + card_w - 120.0, y + 45.0, 20.0, GREEN);
             } else {
                 let cost_color = if can_afford { WHITE } else { RED };
-                draw_text(
+                draw_ui_text(
                     &format!("Cost: {} Cr", cost),
                     card_x + card_w - 150.0,
                     y + 35.0,
@@ -313,7 +314,7 @@ impl Renderer {
                     cost_color,
                 );
                 if can_afford {
-                    draw_text(
+                    draw_ui_text(
                         &format!("[{}] Buy", i + 1),
                         card_x + card_w - 150.0,
                         y + 60.0,
@@ -321,7 +322,7 @@ impl Renderer {
                         YELLOW,
                     );
                 } else {
-                    draw_text(
+                    draw_ui_text(
                         "Insufficient Funds",
                         card_x + card_w - 150.0,
                         y + 60.0,
@@ -333,8 +334,8 @@ impl Renderer {
         }
 
         let footer = "Press [ENTER] to start next round | Press [ESC] for Menu";
-        let footer_w = measure_text(footer, None, 20, 1.0).width;
-        draw_text(
+        let footer_w = measure_ui_text(footer, None, 20, 1.0).width;
+        draw_ui_text(
             footer,
             (screen_width() - footer_w) / 2.0,
             screen_height() - 40.0,
@@ -361,8 +362,8 @@ fn draw_menu_button(bounds: (f32, f32, f32, f32), label: &str, accent: Color) {
     draw_rectangle_lines(x, y, w, h, 1.0, color_u8!(160, 164, 158, 180));
     draw_rectangle(x, y, 4.0, h, accent);
 
-    let text_size = measure_text(label, None, 24, 1.0);
-    draw_text(
+    let text_size = measure_ui_text(label, None, 24, 1.0);
+    draw_ui_text(
         label,
         x + (w - text_size.width) / 2.0,
         y + h / 2.0 + 8.0,

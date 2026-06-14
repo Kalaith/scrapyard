@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use macroquad::prelude::*;
+use macroquad_toolkit::ui::draw_ui_text;
 
 mod data;
 mod economy;
@@ -90,7 +91,7 @@ async fn main() {
 
         // Debug: show sound status
         if game_state.settings.show_fps && sound_manager.has_sounds() {
-            macroquad::prelude::draw_text("♪ Sound ON", 10.0, 30.0, 16.0, GREEN);
+            draw_ui_text("♪ Sound ON", 10.0, 30.0, 16.0, GREEN);
         }
 
         next_frame().await

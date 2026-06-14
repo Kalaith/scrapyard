@@ -7,6 +7,7 @@ use crate::ui::panels;
 use crate::ui::renderer::Renderer;
 use crate::ui::theme;
 use macroquad::prelude::*;
+use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
 
 const HUD_HEIGHT: f32 = 42.0;
 const SAFE_MARGIN: f32 = 12.0;
@@ -77,7 +78,7 @@ impl Renderer {
         );
 
         let alert_pct = (state.nanite_alert / 50.0).clamp(0.0, 1.0);
-        draw_text("ALERT", x, 25.0, 16.0, alert_color(alert_pct));
+        draw_ui_text("ALERT", x, 25.0, 16.0, alert_color(alert_pct));
         panels::draw_segmented_bar(
             Rect::new(x + 66.0, 14.0, 132.0, 10.0),
             alert_pct,
@@ -93,7 +94,7 @@ impl Renderer {
     fn draw_powered_system_strip(&self, state: &GameState) {
         let y = HUD_HEIGHT + 8.0;
         let mut x = SAFE_MARGIN;
-        draw_text("POWERED", x, y + 16.0, 13.0, theme::text_dim());
+        draw_ui_text("POWERED", x, y + 16.0, 13.0, theme::text_dim());
         x += 72.0;
 
         let mut drawn = 0;
@@ -109,7 +110,7 @@ impl Renderer {
         }
 
         if drawn == 0 {
-            draw_text("NONE", x, y + 16.0, 13.0, theme::text_dim());
+            draw_ui_text("NONE", x, y + 16.0, 13.0, theme::text_dim());
         }
     }
 
@@ -121,7 +122,7 @@ impl Renderer {
         let rect = Rect::new(x, y, w, h);
 
         panels::draw_panel(rect, "", theme::danger());
-        draw_text(
+        draw_ui_text(
             &format!("ATTACK {}", state.enemies.len()),
             x + 10.0,
             y + 18.0,
@@ -175,9 +176,9 @@ impl Renderer {
         draw_rectangle(rect.x, rect.y, rect.w, rect.h, color_u8!(0, 0, 0, 190));
         draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 1.0, color);
         draw_rectangle(rect.x, rect.y, rect.w, 2.0, color);
-        draw_text(title, rect.x + 16.0, rect.y + 23.0, 18.0, color);
+        draw_ui_text(title, rect.x + 16.0, rect.y + 23.0, 18.0, color);
         let fitted_body = fit_text(&body, rect.w - 32.0, 15);
-        draw_text(
+        draw_ui_text(
             &fitted_body,
             rect.x + 16.0,
             rect.y + 46.0,
@@ -227,8 +228,8 @@ fn bottom_prompt_y() -> f32 {
 }
 
 fn draw_status_item(x: f32, label: &str, value: &str, color: Color, width: f32) -> f32 {
-    draw_text(label, x, 16.0, 13.0, theme::text_muted());
-    draw_text(value, x, 33.0, 18.0, color);
+    draw_ui_text(label, x, 16.0, 13.0, theme::text_muted());
+    draw_ui_text(value, x, 33.0, 18.0, color);
     x + width
 }
 
@@ -236,7 +237,7 @@ fn draw_system_chip(room: &Room, x: f32, y: f32) {
     let color = system_state_color(room);
     draw_rectangle(x, y, 26.0, 22.0, color_u8!(0, 0, 0, 175));
     draw_rectangle_lines(x, y, 26.0, 22.0, 1.0, color);
-    draw_text(system_code(room), x + 8.0, y + 16.0, 13.0, color);
+    draw_ui_text(system_code(room), x + 8.0, y + 16.0, 13.0, color);
 }
 
 fn draw_system_detail_row(state: &GameState, room: &Room, x: f32, y: f32) {
@@ -245,21 +246,21 @@ fn draw_system_detail_row(state: &GameState, room: &Room, x: f32, y: f32) {
     let total = room.repair_points.len().max(1);
     let status = room_status(state, room);
 
-    draw_text(room.name(), x, y, 13.0, theme::text_muted());
+    draw_ui_text(room.name(), x, y, 13.0, theme::text_muted());
     panels::draw_segmented_bar(
         Rect::new(x + 88.0, y - 10.0, 82.0, 8.0),
         repaired as f32 / total as f32,
         total,
         color,
     );
-    draw_text(status.0, x + 184.0, y, 13.0, status.1);
+    draw_ui_text(status.0, x + 184.0, y, 13.0, status.1);
 }
 
 fn draw_action_chip(rect: Rect, key: &str, label: &str, color: Color) {
     draw_rectangle(rect.x, rect.y, rect.w, rect.h, color_u8!(0, 0, 0, 170));
     draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 1.0, color);
-    draw_text(key, rect.x + 10.0, rect.y + 18.0, 14.0, color);
-    draw_text(
+    draw_ui_text(key, rect.x + 10.0, rect.y + 18.0, 14.0, color);
+    draw_ui_text(
         label,
         rect.x + 42.0,
         rect.y + 18.0,
@@ -491,7 +492,7 @@ fn view_action_label(state: &GameState) -> &'static str {
 }
 
 fn fit_text(text: &str, max_width: f32, font_size: u16) -> String {
-    if measure_text(text, None, font_size, 1.0).width <= max_width {
+    if measure_ui_text(text, None, font_size, 1.0).width <= max_width {
         return text.to_string();
     }
 
@@ -499,7 +500,7 @@ fn fit_text(text: &str, max_width: f32, font_size: u16) -> String {
     while fitted.len() > 4 {
         fitted.pop();
         let candidate = format!("{}...", fitted.trim_end());
-        if measure_text(&candidate, None, font_size, 1.0).width <= max_width {
+        if measure_ui_text(&candidate, None, font_size, 1.0).width <= max_width {
             return candidate;
         }
     }

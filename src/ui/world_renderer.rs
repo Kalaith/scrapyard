@@ -5,6 +5,7 @@ use crate::state::{GameState, ViewMode};
 use crate::ui::renderer::Renderer;
 use crate::ui::theme;
 use macroquad::prelude::*;
+use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
 
 impl Renderer {
     pub fn draw_gameplay(&self, state: &GameState) {
@@ -234,7 +235,7 @@ impl Renderer {
             let name = room.name();
             if !name.is_empty() {
                 let text_size = 18.0;
-                let text_w = measure_text(name, None, text_size as u16, 1.0).width;
+                let text_w = measure_ui_text(name, None, text_size as u16, 1.0).width;
                 draw_rectangle(
                     rx + (room.width - text_w) / 2.0 - 8.0,
                     ry + 6.0,
@@ -242,7 +243,7 @@ impl Renderer {
                     22.0,
                     color_u8!(0, 0, 0, 150),
                 );
-                draw_text(
+                draw_ui_text(
                     name,
                     rx + (room.width - text_w) / 2.0,
                     ry + 24.0,
@@ -309,7 +310,7 @@ impl Renderer {
             if pile.position.distance(state.player.position) < INTERACTION_RANGE {
                 draw_circle_lines(screen_pos_x, screen_pos_y, 12.0, 2.0, YELLOW);
                 if state.gathering_target.is_none() {
-                    draw_text(
+                    draw_ui_text(
                         "[Hold E] Scavenge",
                         screen_pos_x - 40.0,
                         screen_pos_y - 15.0,

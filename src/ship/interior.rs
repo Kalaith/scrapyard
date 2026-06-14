@@ -113,6 +113,7 @@ pub struct Room {
     pub module_index: Option<(usize, usize)>,
     pub connections: Vec<usize>,
     pub repair_points: Vec<RepairPoint>,
+    pub powered: bool,
 }
 
 impl Room {
@@ -127,6 +128,7 @@ impl Room {
             module_index: None,
             connections: Vec::new(),
             repair_points: Vec::new(),
+            powered: false,
         }
     }
 

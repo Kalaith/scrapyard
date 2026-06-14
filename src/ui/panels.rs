@@ -1,5 +1,6 @@
 use crate::ui::theme;
 use macroquad::prelude::*;
+use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
 
 pub fn draw_panel(rect: Rect, title: &str, accent: Color) {
     draw_rectangle(rect.x, rect.y, rect.w, rect.h, theme::panel_bg());
@@ -7,7 +8,7 @@ pub fn draw_panel(rect: Rect, title: &str, accent: Color) {
     draw_rectangle(rect.x, rect.y, rect.w, 2.0, accent);
 
     if !title.is_empty() {
-        draw_text(title, rect.x + 12.0, rect.y + 22.0, 18.0, accent);
+        draw_ui_text(title, rect.x + 12.0, rect.y + 22.0, 18.0, accent);
         draw_line(
             rect.x,
             rect.y + 34.0,
@@ -22,11 +23,11 @@ pub fn draw_panel(rect: Rect, title: &str, accent: Color) {
 pub fn draw_stat_card(rect: Rect, label: &str, value: &str, detail: &str, color: Color) {
     draw_rectangle(rect.x, rect.y, rect.w, rect.h, theme::panel_bg_light());
     draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 1.0, theme::panel_border());
-    draw_text(label, rect.x + 10.0, rect.y + 18.0, 16.0, color);
-    draw_text(value, rect.x + 10.0, rect.y + 42.0, 24.0, color);
+    draw_ui_text(label, rect.x + 10.0, rect.y + 18.0, 16.0, color);
+    draw_ui_text(value, rect.x + 10.0, rect.y + 42.0, 24.0, color);
 
     if !detail.is_empty() {
-        draw_text(
+        draw_ui_text(
             detail,
             rect.x + 10.0,
             rect.y + rect.h - 6.0,
@@ -85,8 +86,8 @@ pub fn draw_checkbox(x: f32, y: f32, checked: bool) {
 pub fn draw_keycap(rect: Rect, label: &str, color: Color) {
     draw_rectangle(rect.x, rect.y, rect.w, rect.h, color_u8!(18, 21, 25, 245));
     draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 1.0, color);
-    let size = measure_text(label, None, 16, 1.0);
-    draw_text(
+    let size = measure_ui_text(label, None, 16, 1.0);
+    draw_ui_text(
         label,
         rect.x + (rect.w - size.width) / 2.0,
         rect.y + rect.h / 2.0 + 6.0,

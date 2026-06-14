@@ -3,6 +3,7 @@
 use crate::state::GameState;
 use crate::ui::renderer::Renderer;
 use macroquad::prelude::*;
+use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
 
 /// Pause menu state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,8 +69,8 @@ impl Renderer {
 
         // Title
         let title = "PAUSED";
-        let title_w = measure_text(title, None, 32, 1.0).width;
-        draw_text(
+        let title_w = measure_ui_text(title, None, 32, 1.0).width;
+        draw_ui_text(
             title,
             box_x + (box_w - title_w) / 2.0,
             box_y + 40.0,
@@ -100,9 +101,9 @@ impl Renderer {
             draw_rectangle_lines(btn_x, y, btn_w, btn_h, 2.0, border_color);
 
             let label = option.label();
-            let text_w = measure_text(label, None, 20, 1.0).width;
+            let text_w = measure_ui_text(label, None, 20, 1.0).width;
             let text_color = if is_selected { WHITE } else { LIGHTGRAY };
-            draw_text(
+            draw_ui_text(
                 label,
                 btn_x + (btn_w - text_w) / 2.0,
                 y + 26.0,
@@ -113,8 +114,8 @@ impl Renderer {
 
         // Controls hint
         let hint = "Arrow Keys / Enter to select";
-        let hint_w = measure_text(hint, None, 14, 1.0).width;
-        draw_text(
+        let hint_w = measure_ui_text(hint, None, 14, 1.0).width;
+        draw_ui_text(
             hint,
             box_x + (box_w - hint_w) / 2.0,
             box_y + box_h - 15.0,
@@ -144,8 +145,8 @@ impl Renderer {
 
         // Title
         let title = "SETTINGS";
-        let title_w = measure_text(title, None, 32, 1.0).width;
-        draw_text(
+        let title_w = measure_ui_text(title, None, 32, 1.0).width;
+        draw_ui_text(
             title,
             box_x + (box_w - title_w) / 2.0,
             box_y + 40.0,
@@ -195,7 +196,7 @@ impl Renderer {
 
             // Label
             let text_color = if is_selected { YELLOW } else { WHITE };
-            draw_text(label, label_x, y + 20.0, 20.0, text_color);
+            draw_ui_text(label, label_x, y + 20.0, 20.0, text_color);
 
             if *is_slider {
                 // Draw slider background
@@ -219,12 +220,12 @@ impl Renderer {
                 );
                 // Value text
                 let pct = format!("{:.0}%", value * 100.0);
-                draw_text(&pct, slider_x + slider_w + 10.0, y + 22.0, 18.0, text_color);
+                draw_ui_text(&pct, slider_x + slider_w + 10.0, y + 22.0, 18.0, text_color);
             } else {
                 // Toggle button
                 let toggle_text = if *value > 0.5 { "ON" } else { "OFF" };
                 let toggle_color = if *value > 0.5 { GREEN } else { RED };
-                draw_text(toggle_text, slider_x, y + 20.0, 20.0, toggle_color);
+                draw_ui_text(toggle_text, slider_x, y + 20.0, 20.0, toggle_color);
             }
         }
 
@@ -242,12 +243,12 @@ impl Renderer {
         }
         let back_text = "< Back (Settings Saved)";
         let back_color = if is_back_selected { YELLOW } else { WHITE };
-        draw_text(back_text, label_x, back_y + 20.0, 20.0, back_color);
+        draw_ui_text(back_text, label_x, back_y + 20.0, 20.0, back_color);
 
         // Controls hint
         let hint = "Up/Down: Select | Left/Right: Adjust | Enter: Toggle/Back";
-        let hint_w = measure_text(hint, None, 14, 1.0).width;
-        draw_text(
+        let hint_w = measure_ui_text(hint, None, 14, 1.0).width;
+        draw_ui_text(
             hint,
             box_x + (box_w - hint_w) / 2.0,
             box_y + box_h - 15.0,
