@@ -250,12 +250,11 @@ fn find_priority_target(ship: &Ship) -> Option<(usize, usize)> {
             if let Some(module) = &ship.grid[x][y] {
                 if module.state == ModuleState::Active {
                     match module.module_type {
-                        ModuleType::Weapon | ModuleType::Defense => {
+                        ModuleType::Weapon | ModuleType::Defense
                             // Simple: return first found. Could improve with distance check.
-                            if best.is_none() {
+                            if best.is_none() => {
                                 best = Some((x, y));
                             }
-                        }
                         _ => {}
                     }
                 }

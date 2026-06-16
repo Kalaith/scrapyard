@@ -81,14 +81,13 @@ impl InputManager {
 
         // Mouse hover updates selection
         let (mx, my) = (input.mouse_pos.x, input.mouse_pos.y);
-        for i in 0..option_count {
+        for (i, selected) in menu_options.iter().enumerate().take(option_count) {
             let y = start_y + i as f32 * spacing;
             if mx >= btn_x && mx <= btn_x + btn_w && my >= y && my <= y + btn_h {
                 state.pause_menu_selection = i;
 
                 // Mouse click selects
                 if input.left_click {
-                    let selected = menu_options[i];
                     match selected {
                         PauseMenuOption::Resume => events.push_ui(UIEvent::Resume),
                         PauseMenuOption::Settings => {

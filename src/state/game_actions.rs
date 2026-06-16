@@ -472,12 +472,12 @@ impl GameState {
                     self.tutorial_state.advance(&self.tutorial_config);
                 }
             }
-            "repair_engine" => {
-                if self.interior.rooms[room_idx].room_type == RoomType::Module(ModuleType::Engine)
-                    && self.interior.rooms[room_idx].repaired_count() > 0
-                {
-                    self.tutorial_state.advance(&self.tutorial_config);
-                }
+            "repair_engine"
+                if self.interior.rooms[room_idx].room_type
+                    == RoomType::Module(ModuleType::Engine)
+                    && self.interior.rooms[room_idx].repaired_count() > 0 =>
+            {
+                self.tutorial_state.advance(&self.tutorial_config);
             }
             _ => {}
         }

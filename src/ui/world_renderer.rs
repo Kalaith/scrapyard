@@ -391,55 +391,56 @@ impl Renderer {
         let base_range = state.module_registry.get(ModuleType::Weapon).range;
 
         for room in &state.interior.rooms {
-            if room.room_type == RoomType::Module(ModuleType::Weapon) && room.powered {
-                if !room.repair_points.is_empty() {
-                    let repaired = room.repaired_count();
-                    if repaired > 0 {
-                        let repair_pct = repaired as f32 / room.repair_points.len() as f32;
-                        let effective_range = base_range * (0.5 + 0.5 * repair_pct);
+            if room.room_type == RoomType::Module(ModuleType::Weapon)
+                && room.powered
+                && !room.repair_points.is_empty()
+            {
+                let repaired = room.repaired_count();
+                if repaired > 0 {
+                    let repair_pct = repaired as f32 / room.repair_points.len() as f32;
+                    let effective_range = base_range * (0.5 + 0.5 * repair_pct);
 
-                        if let Some((gx, gy)) = room.module_index {
-                            // Locate module center on screen
-                            // Since we don't have Layout::grid_to_screen_center easily here without offsets,
-                            // we calculate it using start_x/y
-                            // Note: We need width/height of module to center properly.
-                            // Assuming module spans room's grid cells.
-                            // Actually, module_index points to top-left of module in grid.
-                            // We should check the module grid size? Or just use the grid coord + center offset
-                            // Weapon modules are typically 2x2 in starter ship (256x256 room -> 256/40 ~ 6.4 cells? Wait)
-                            // Ship interior coordinates are different from Grid coordinates.
-                            // Ship Exterior Grid is 20x15.
+                    if let Some((gx, gy)) = room.module_index {
+                        // Locate module center on screen
+                        // Since we don't have Layout::grid_to_screen_center easily here without offsets,
+                        // we calculate it using start_x/y
+                        // Note: We need width/height of module to center properly.
+                        // Assuming module spans room's grid cells.
+                        // Actually, module_index points to top-left of module in grid.
+                        // We should check the module grid size? Or just use the grid coord + center offset
+                        // Weapon modules are typically 2x2 in starter ship (256x256 room -> 256/40 ~ 6.4 cells? Wait)
+                        // Ship interior coordinates are different from Grid coordinates.
+                        // Ship Exterior Grid is 20x15.
 
-                            // Wait, I need to know how many cells the module occupies in the Exterior Grid.
-                            // room.module_index (gx, gy) are Exterior Grid coordinates.
-                            // To center the circle, we need the center of the module in Exterior Grid space.
+                        // Wait, I need to know how many cells the module occupies in the Exterior Grid.
+                        // room.module_index (gx, gy) are Exterior Grid coordinates.
+                        // To center the circle, we need the center of the module in Exterior Grid space.
 
-                            // Let's assume typical weapon is 2x2?
-                            // Better: Check the grid at gx, gy. If it's part of a multi-cell module, how do we find center?
-                            // Since we iterate rooms, and room has module_index (gx, gy),
-                            // lets just assume center of that specific cell (gx, gy) or center of the room in grid space?
-                            // In `combat.rs`, `fire_towers` uses `Layout::grid_to_screen_center(gx, gy)`.
-                            // Layout uses generic constants.
-                            // Here we have `start_x, start_y`.
+                        // Let's assume typical weapon is 2x2?
+                        // Better: Check the grid at gx, gy. If it's part of a multi-cell module, how do we find center?
+                        // Since we iterate rooms, and room has module_index (gx, gy),
+                        // lets just assume center of that specific cell (gx, gy) or center of the room in grid space?
+                        // In `combat.rs`, `fire_towers` uses `Layout::grid_to_screen_center(gx, gy)`.
+                        // Layout uses generic constants.
+                        // Here we have `start_x, start_y`.
 
-                            // Let's rely on the fact that for now, weapons might be 1x1 or we just draw from top-left offset.
-                            // Ideally we draw from the center of the module.
-                            // Let's try to infer module size or just reuse `module_index` which is the "primary" cell.
-                            // If `combat.rs` uses `grid_to_screen_center(gx, gy)`, I should match that.
+                        // Let's rely on the fact that for now, weapons might be 1x1 or we just draw from top-left offset.
+                        // Ideally we draw from the center of the module.
+                        // Let's try to infer module size or just reuse `module_index` which is the "primary" cell.
+                        // If `combat.rs` uses `grid_to_screen_center(gx, gy)`, I should match that.
 
-                            // calculate center of cell (gx, gy)
-                            let cx = start_x + gx as f32 * CELL_SIZE + CELL_SIZE / 2.0;
-                            let cy = start_y + gy as f32 * CELL_SIZE + CELL_SIZE / 2.0;
+                        // calculate center of cell (gx, gy)
+                        let cx = start_x + gx as f32 * CELL_SIZE + CELL_SIZE / 2.0;
+                        let cy = start_y + gy as f32 * CELL_SIZE + CELL_SIZE / 2.0;
 
-                            // Draw circle
-                            draw_circle_lines(
-                                cx,
-                                cy,
-                                effective_range,
-                                2.0,
-                                color_u8!(255, 100, 0, 100),
-                            ); // Faint Orange
-                        }
+                        // Draw circle
+                        draw_circle_lines(
+                            cx,
+                            cy,
+                            effective_range,
+                            2.0,
+                            color_u8!(255, 100, 0, 100),
+                        ); // Faint Orange
                     }
                 }
             }

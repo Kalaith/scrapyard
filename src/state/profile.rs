@@ -11,8 +11,7 @@ const PROFILE_PATH: &str = "player_profile.json";
 const GAME_NAME: &str = "scrapyard";
 
 /// Persistent player profile that survives across game runs
-#[derive(Debug, Clone, Serialize, Deserialize)]
-
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PlayerProfile {
     /// Total credits earned across all runs
     pub lifetime_credits: i32,
@@ -24,18 +23,6 @@ pub struct PlayerProfile {
     pub runs_completed: u32,
     /// Best escape time in seconds
     pub best_time: Option<f32>,
-}
-
-impl Default for PlayerProfile {
-    fn default() -> Self {
-        Self {
-            lifetime_credits: 0,
-            banked_credits: 0,
-            permanent_upgrades: HashMap::new(),
-            runs_completed: 0,
-            best_time: None,
-        }
-    }
 }
 
 impl PlayerProfile {
@@ -52,7 +39,7 @@ impl PlayerProfile {
 
     /// Save profile to disk
     pub fn save(&self) -> std::io::Result<()> {
-        save_profile(self).map_err(|error| io::Error::new(io::ErrorKind::Other, error))
+        save_profile(self).map_err(io::Error::other)
     }
 
     /// Record a successful escape

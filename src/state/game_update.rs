@@ -10,27 +10,22 @@ use crate::state::game_state::{EngineState, GamePhase, GameState, ViewMode};
 
 impl GameState {
     pub fn update(&mut self, dt: f32, events: &mut EventBus) {
-        match self.phase {
-            GamePhase::Playing => {
-                if !self.paused {
-                    if self.view_mode == ViewMode::Interior {
-                        self.player.update(dt, &self.interior);
-                        self.player.update_nearby_module(&self.interior);
-                    }
-                    self.update_power();
-                    self.update_resources();
-                    self.update_engine(dt, events);
-                    crate::enemy::ai::update_wave_logic(self, dt, events);
-                    crate::enemy::ai::update_enemies(self, dt);
-                    crate::enemy::combat::update_combat(self, dt, events);
-                    self.frame_count += 1;
-                    self.time_survived += dt;
-
-                    self.update_support_systems(dt);
-                    self.check_game_over(events);
-                }
+        if self.phase == GamePhase::Playing && !self.paused {
+            if self.view_mode == ViewMode::Interior {
+                self.player.update(dt, &self.interior);
+                self.player.update_nearby_module(&self.interior);
             }
-            _ => {}
+            self.update_power();
+            self.update_resources();
+            self.update_engine(dt, events);
+            crate::enemy::ai::update_wave_logic(self, dt, events);
+            crate::enemy::ai::update_enemies(self, dt);
+            crate::enemy::combat::update_combat(self, dt, events);
+            self.frame_count += 1;
+            self.time_survived += dt;
+
+            self.update_support_systems(dt);
+            self.check_game_over(events);
         }
     }
 
@@ -195,15 +190,14 @@ impl GameState {
                         self.engine_state = EngineState::Charging;
                     }
                 }
-                EngineState::Charging => {
+                EngineState::Charging
                     // Check for Overheat (Critical Stress)
                     // If critical, trigger Emergency Shutdown (Force Idle)
-                    if self.engine_stress >= STRESS_THRESHOLD_CRITICAL {
+                    if self.engine_stress >= STRESS_THRESHOLD_CRITICAL => {
                         self.engine_state = EngineState::Idle;
                         // Note: Cascade damage logic below will still tick for this frame,
                         // but next frame we are Idle and decaying.
                     }
-                }
                 _ => {}
             }
         } else {

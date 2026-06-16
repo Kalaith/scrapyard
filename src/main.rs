@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(dead_code, clippy::module_inception, clippy::type_complexity)]
 
 use macroquad::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text;

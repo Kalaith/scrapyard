@@ -63,42 +63,39 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
 
         // Access Module to update cooldown
         // Note: Using disjoint borrow of state should work (interior is borrowed, ship is separate)
-        if let Some(cell) = state.ship.grid.get_mut(gx).and_then(|row| row.get_mut(gy)) {
-            if let Some(module) = cell {
-                // Decrease cooldown
-                module.cooldown -= dt;
+        if let Some(Some(module)) = state.ship.grid.get_mut(gx).and_then(|row| row.get_mut(gy)) {
+            // Decrease cooldown
+            module.cooldown -= dt;
 
-                // Debug prints every 60 frames (approx 1 sec) to reduce spam?
-                // Or just print if cooldown <= 0?
-                if module.cooldown <= 0.0 && state.frame_count % 60 == 0 {
-                    // println!("Weapon Ready: Repaired {}/{} (Pct {:.2}), Rate {:.2}, EffRate {:.2}, Rng {:.0}",
-                    //    room.repaired_count(), room.repair_points.len(), repair_pct, base_fire_rate, effective_fire_rate, effective_range);
-                }
+            // Debug prints every 60 frames (approx 1 sec) to reduce spam?
+            // Or just print if cooldown <= 0?
+            if module.cooldown <= 0.0 && state.frame_count.is_multiple_of(60) {
+                // println!("Weapon Ready: Repaired {}/{} (Pct {:.2}), Rate {:.2}, EffRate {:.2}, Rng {:.0}",
+                //    room.repaired_count(), room.repair_points.len(), repair_pct, base_fire_rate, effective_fire_rate, effective_range);
+            }
 
-                // Ready to fire?
-                if module.cooldown <= 0.0 {
-                    let tower_pos = Layout::grid_to_screen_center(gx, gy);
+            // Ready to fire?
+            if module.cooldown <= 0.0 {
+                let tower_pos = Layout::grid_to_screen_center(gx, gy);
 
-                    if let Some(target) =
-                        find_nearest_enemy(&state.enemies, tower_pos, effective_range)
-                    {
-                        new_projectiles.push(Projectile::new(
-                            tower_pos,
-                            target,
-                            400.0,
-                            effective_damage,
-                        ));
-                        events.push_game(GameEvent::WeaponFired {
-                            x: tower_pos.x,
-                            y: tower_pos.y,
-                        });
+                if let Some(target) = find_nearest_enemy(&state.enemies, tower_pos, effective_range)
+                {
+                    new_projectiles.push(Projectile::new(
+                        tower_pos,
+                        target,
+                        400.0,
+                        effective_damage,
+                    ));
+                    events.push_game(GameEvent::WeaponFired {
+                        x: tower_pos.x,
+                        y: tower_pos.y,
+                    });
 
-                        // Reset cooldown
-                        if effective_fire_rate > 0.001 {
-                            module.cooldown = 1.0 / effective_fire_rate;
-                        } else {
-                            module.cooldown = 10.0;
-                        }
+                    // Reset cooldown
+                    if effective_fire_rate > 0.001 {
+                        module.cooldown = 1.0 / effective_fire_rate;
+                    } else {
+                        module.cooldown = 10.0;
                     }
                 }
             }
@@ -249,11 +246,12 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
     // Calculate shield reduction from all shield rooms
     let mut shield_reduction: f32 = 0.0;
     for room in &state.interior.rooms {
-        if room.room_type == RoomType::Module(ModuleType::Defense) && room.powered {
-            if !room.repair_points.is_empty() {
-                let repair_pct = room.repaired_count() as f32 / room.repair_points.len() as f32;
-                shield_reduction += repair_pct * 0.5; // Each shield room can block up to 50%
-            }
+        if room.room_type == RoomType::Module(ModuleType::Defense)
+            && room.powered
+            && !room.repair_points.is_empty()
+        {
+            let repair_pct = room.repaired_count() as f32 / room.repair_points.len() as f32;
+            shield_reduction += repair_pct * 0.5; // Each shield room can block up to 50%
         }
     }
     // Cap at 80% damage reduction max
@@ -276,31 +274,29 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
                     let nx = (gx as i32 + dx) as usize;
                     let ny = (gy as i32 + dy) as usize;
 
-                    if nx < GRID_WIDTH && ny < GRID_HEIGHT {
-                        if state.ship.grid[nx][ny].is_some() {
-                            let module_pos = Layout::grid_to_screen_center(nx, ny);
-                            let dist = enemy.position.distance(module_pos);
+                    if nx < GRID_WIDTH && ny < GRID_HEIGHT && state.ship.grid[nx][ny].is_some() {
+                        let module_pos = Layout::grid_to_screen_center(nx, ny);
+                        let dist = enemy.position.distance(module_pos);
 
-                            if dist < attack_range {
-                                // Apply shield reduction to damage
-                                let base_damage = enemy.damage * dt;
-                                let damage = base_damage * (1.0 - shield_reduction);
-                                state.ship_integrity -= damage;
+                        if dist < attack_range {
+                            // Apply shield reduction to damage
+                            let base_damage = enemy.damage * dt;
+                            let damage = base_damage * (1.0 - shield_reduction);
+                            state.ship_integrity -= damage;
 
-                                hit_something = true;
+                            hit_something = true;
 
-                                // Only play sound (emit event) if not already attacking
-                                if !enemy.attacking {
-                                    enemy.attacking = true;
-                                    events.push_game(GameEvent::ModuleDamaged {
-                                        x: nx,
-                                        y: ny,
-                                        damage,
-                                    });
-                                }
-
-                                break 'outer;
+                            // Only play sound (emit event) if not already attacking
+                            if !enemy.attacking {
+                                enemy.attacking = true;
+                                events.push_game(GameEvent::ModuleDamaged {
+                                    x: nx,
+                                    y: ny,
+                                    damage,
+                                });
                             }
+
+                            break 'outer;
                         }
                     }
                 }

@@ -59,7 +59,6 @@ pub enum GameEvent {
 }
 
 /// Event bus for decoupling UI input from game logic updates
-
 pub struct EventBus {
     ui_events: Vec<UIEvent>,
     game_events: Vec<GameEvent>,

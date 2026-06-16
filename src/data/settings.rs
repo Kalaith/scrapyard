@@ -37,15 +37,12 @@ impl Settings {
 
     /// Load settings from config.json, or return defaults if file doesn't exist
     pub fn load() -> Self {
-        match load_settings() {
-            Ok(settings) => settings,
-            Err(_) => Self::default(),
-        }
+        load_settings().unwrap_or_default()
     }
 
     /// Save settings to config.json
     pub fn save(&self) -> std::io::Result<()> {
-        save_settings(self).map_err(|error| io::Error::new(io::ErrorKind::Other, error))
+        save_settings(self).map_err(io::Error::other)
     }
 
     /// Get effective SFX volume (master * sfx)

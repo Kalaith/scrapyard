@@ -202,5 +202,5 @@ impl GameState {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn to_io_error(error: String) -> io::Error {
-    io::Error::new(io::ErrorKind::Other, error)
+    io::Error::other(error)
 }
