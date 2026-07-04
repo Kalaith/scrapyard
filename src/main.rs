@@ -1,6 +1,7 @@
 #![allow(dead_code, clippy::module_inception, clippy::type_complexity)]
 
 use macroquad::prelude::*;
+use macroquad_toolkit::capture;
 use macroquad_toolkit::ui::draw_ui_text;
 
 mod data;
@@ -18,7 +19,16 @@ use simulation::events::{EventBus, GameEvent};
 use ui::renderer::Renderer;
 use ui::sound_manager::{SoundEffect, SoundManager};
 
-#[macroquad::main("Scrapyard Planet")]
+fn window_conf() -> Conf {
+    capture::capture_window_conf(
+        "SCRAPYARD",
+        "Scrapyard Planet",
+        SCREEN_WIDTH as i32,
+        SCREEN_HEIGHT as i32,
+    )
+}
+
+#[macroquad::main(window_conf)]
 async fn main() {
     let mut game_state = GameState::new();
     game_state.assets.load_assets().await;
@@ -31,9 +41,16 @@ async fn main() {
     let mut input_manager = ui::input_manager::InputManager::new();
     let mut event_bus = EventBus::new();
 
-    loop {
-        let dt = get_frame_time();
+    // Screenshot harness: when SCRAPYARD_CAPTURE_PATH is set, seed a scene,
+    // simulate deterministic frames, write a PNG, and exit.
+    let capture_config = capture::CaptureConfig::from_env("SCRAPYARD");
+    if let Some(config) = &capture_config {
+        game_state.begin_capture_scene(&config.scene);
+    }
 
+    // Whole per-frame body (input, update, events, draw), shared by the
+    // capture harness and the interactive loop below.
+    let mut frame = |dt: f32| {
         // 1. Gather input and push UI events
         input_manager.update(&mut game_state, &mut event_bus);
 
@@ -93,7 +110,16 @@ async fn main() {
         if game_state.settings.show_fps && sound_manager.has_sounds() {
             draw_ui_text("♪ Sound ON", 10.0, 30.0, 16.0, GREEN);
         }
+    };
 
+    if let Some(config) = capture_config {
+        capture::run_capture(&config, frame).await;
+        return;
+    }
+
+    loop {
+        let dt = get_frame_time();
+        frame(dt);
         next_frame().await
     }
 }

@@ -212,6 +212,23 @@ impl GameState {
         self.spawn_scrap_piles();
     }
 
+    /// Seed a specific scene for the screenshot harness.
+    pub fn begin_capture_scene(&mut self, scene: &str) {
+        match scene {
+            "menu" => {
+                self.phase = GamePhase::Menu;
+            }
+            "pause" => {
+                self.start_new_game();
+                self.paused = true;
+            }
+            _ => {
+                // Default: jump straight into gameplay.
+                self.start_new_game();
+            }
+        }
+    }
+
     pub fn spawn_scrap_piles(&mut self) {
         let count = rng::gen_range(MIN_SCRAP_PILES, MAX_SCRAP_PILES + 1);
         for _ in 0..count {
