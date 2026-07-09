@@ -29,6 +29,8 @@ pub struct ModuleStats {
     pub name: String,
     pub base_cost: i32,
     pub power_consumption: i32,
+    /// Power drawn per repaired point when this system is routed online (from modules.json).
+    pub power_cost: i32,
     pub max_health: f32,
     pub range: f32,
     pub damage: f32,
@@ -41,6 +43,7 @@ impl ModuleStats {
             name: name.to_string(),
             base_cost: cost,
             power_consumption: power,
+            power_cost: 0,
             max_health: hp,
             range: 0.0,
             damage: 0.0,
@@ -99,8 +102,13 @@ impl ModuleRegistry {
                 } else {
                     -raw.power_consumption
                 };
-                let stats_obj = ModuleStats::new(&raw.name, raw.base_cost, power, raw.max_health)
-                    .with_combat(raw.range, raw.damage, raw.fire_rate);
+                let mut stats_obj =
+                    ModuleStats::new(&raw.name, raw.base_cost, power, raw.max_health).with_combat(
+                        raw.range,
+                        raw.damage,
+                        raw.fire_rate,
+                    );
+                stats_obj.power_cost = raw.power_consumption.max(0);
                 stats.insert(mod_type, stats_obj);
             } else {
                 eprintln!("Warning: Unknown module type in JSON: {}", key);
@@ -119,5 +127,10 @@ impl ModuleRegistry {
         self.stats
             .get(&module_type)
             .unwrap_or_else(|| self.stats.get(&ModuleType::Empty).unwrap())
+    }
+
+    /// Per-repaired-point power draw for a routed module type (data-driven, min 1).
+    pub fn power_cost(&self, module_type: ModuleType) -> i32 {
+        self.get(module_type).power_cost.max(1)
     }
 }

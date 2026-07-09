@@ -101,6 +101,10 @@ pub struct GameState {
     /// time_survived at which the engine first became escape-ready (repaired + powered).
     /// Drives death-screen forensics: proves escape was a choice the player declined.
     pub engine_ready_at: Option<f32>,
+    /// Bitmask of scripted charge-surge waves already fired this charge (reset when idle).
+    pub charge_surges_fired: u8,
+    /// Highest hull-breach threshold band already triggered this run (interior hazards).
+    pub hull_breach_stage: usize,
 }
 
 impl GameState {
@@ -167,6 +171,8 @@ impl GameState {
             recent_events: vec!["Systems waiting for repair".to_string()],
             last_signal_tier: 0,
             engine_ready_at: None,
+            charge_surges_fired: 0,
+            hull_breach_stage: 0,
         };
 
         state.sync_upgrades_from_profile();
@@ -212,6 +218,8 @@ impl GameState {
         self.last_payout = None;
         self.last_signal_tier = 0;
         self.engine_ready_at = None;
+        self.charge_surges_fired = 0;
+        self.hull_breach_stage = 0;
         self.pause_menu_selection = 0;
         self.recent_events.clear();
         self.recent_events

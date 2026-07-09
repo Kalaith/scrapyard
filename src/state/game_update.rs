@@ -7,6 +7,7 @@ use crate::ship::ship::{ModuleState, ModuleType};
 use crate::simulation::constants::*;
 use crate::simulation::events::{EventBus, GameEvent};
 use crate::state::game_state::{EngineState, GamePhase, GameState, ViewMode};
+use macroquad_toolkit::rng;
 
 impl GameState {
     pub fn update(&mut self, dt: f32, events: &mut EventBus) {
@@ -16,7 +17,6 @@ impl GameState {
                 self.player.update_nearby_module(&self.interior);
             }
             self.update_power();
-            self.update_resources();
             self.update_engine(dt, events);
             crate::enemy::ai::update_wave_logic(self, dt, events);
             crate::enemy::ai::update_enemies(self, dt);
@@ -27,7 +27,53 @@ impl GameState {
 
             self.update_support_systems(dt);
             self.emit_threat_escalation(events);
+            self.check_hull_breaches(events);
             self.check_game_over(events);
+        }
+    }
+
+    /// Interior consequence of exterior damage: as the hull crosses each breach band, a live
+    /// system loses a repair point, pulling the player back inside to re-repair under fire.
+    fn check_hull_breaches(&mut self, events: &mut EventBus) {
+        if self.ship_max_integrity <= 0.0 {
+            return;
+        }
+        let pct = self.ship_integrity / self.ship_max_integrity;
+        while self.hull_breach_stage < HULL_BREACH_THRESHOLDS.len()
+            && pct <= HULL_BREACH_THRESHOLDS[self.hull_breach_stage]
+        {
+            self.hull_breach_stage += 1;
+            self.trigger_hull_breach(events);
+        }
+    }
+
+    fn trigger_hull_breach(&mut self, events: &mut EventBus) {
+        let candidates: Vec<usize> = self
+            .interior
+            .rooms
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| {
+                Self::is_routeable_room(r) && r.repaired_count() > 0 && r.module_index.is_some()
+            })
+            .map(|(i, _)| i)
+            .collect();
+        let Some(&room_idx) = rng::choose(&candidates) else {
+            return;
+        };
+        let Some((gx, gy)) = self.interior.rooms[room_idx].module_index else {
+            return;
+        };
+        // Force a repair-point knockout through the shared per-module damage path.
+        let dmg = self.ship.grid[gx][gy]
+            .as_ref()
+            .map(|m| m.health + 1.0)
+            .unwrap_or(999.0);
+        self.apply_module_damage(gx, gy, dmg, events);
+        self.recent_events
+            .push("Hull breach — a live system took damage".to_string());
+        if self.recent_events.len() > 12 {
+            self.recent_events.remove(0);
         }
     }
 
@@ -70,7 +116,7 @@ impl GameState {
                 RoomType::Module(ModuleType::Core) => {
                     self.total_power += repaired * POWER_PER_CORE_POINT
                 }
-                _ => self.used_power += Self::active_room_power_draw(room),
+                _ => self.used_power += Self::active_room_power_draw(room, &self.module_registry),
             }
         }
 
@@ -84,7 +130,7 @@ impl GameState {
                 {
                     continue;
                 }
-                self.used_power += Self::active_room_power_draw(room);
+                self.used_power += Self::active_room_power_draw(room, &self.module_registry);
             }
         }
 
@@ -101,7 +147,7 @@ impl GameState {
                 break;
             }
             if self.interior.rooms[idx].powered {
-                let draw = Self::room_power_need(&self.interior.rooms[idx]);
+                let draw = Self::room_power_need(&self.interior.rooms[idx], &self.module_registry);
                 self.interior.rooms[idx].powered = false;
                 self.used_power = (self.used_power - draw).max(0);
             }
@@ -119,6 +165,9 @@ impl GameState {
         if !self.life_support_online() && self.used_power > 0 {
             signature += LIFE_SUPPORT_OFFLINE_SIGNATURE;
         }
+        // Extractable-value (greed) term: the same repaired / scrap / kill lines the payout
+        // preview rewards. Survival lines (hull) are deliberately excluded so a healthy ship
+        // doesn't draw more enemies than a wreck. Your unbanked wealth *is* your danger.
         let repaired_value = self
             .interior
             .rooms
@@ -130,6 +179,11 @@ impl GameState {
         let combat_value = self.enemies_destroyed * PAYOUT_ENEMY_DESTROYED_BONUS;
         signature +=
             ((repaired_value + reserve_value + combat_value) / HIGH_VALUE_SIGNATURE_DIVISOR).max(0);
+
+        // Rising nanite alert (from time and, especially, turtling in silence) leaks into
+        // the signature so quiet full-repair runs still eventually draw a crowd.
+        let alert_excess = (self.nanite_alert - NANITE_ALERT_BASE).max(0.0);
+        signature += (alert_excess / NANITE_ALERT_SIGNATURE_DIVISOR) as i32;
         signature
     }
 
@@ -171,10 +225,6 @@ impl GameState {
             self.phase = GamePhase::GameOver;
             events.push_game(GameEvent::CoreDestroyed);
         }
-    }
-
-    fn update_resources(&mut self) {
-        // Power calculation is handled by update_power() - interior-based system only
     }
 
     fn update_support_systems(&mut self, dt: f32) {
@@ -241,10 +291,17 @@ impl GameState {
 
         // --- NANITE ALERT ---
         self.nanite_alert += dt * 0.1; // Base growth over time
+                                       // Anti-turtle: with nothing routed the swarm hunts the silence and closes in faster,
+                                       // so quietly full-repairing everything before flipping systems on is no longer free.
+        if self.used_power == 0 {
+            self.nanite_alert += dt * NANITE_ALERT_SILENCE_ACCEL;
+        }
 
         // --- ENGINE STRESS ---
         match self.engine_state {
             EngineState::Idle => {
+                // Not charging: cool down and re-arm the scripted surges for the next attempt.
+                self.charge_surges_fired = 0;
                 if self.engine_stress > 0.0 {
                     self.engine_stress = (self.engine_stress - STRESS_DECAY_IDLE * dt).max(0.0);
                 }
@@ -255,6 +312,30 @@ impl GameState {
 
                 // Original Charging Logic within Charging State
                 self.escape_timer -= dt * engine_repair_pct;
+
+                // Scripted surges: a mid-charge push at T-40s remaining and a leech assault at
+                // T-15s, so the final minute is the game's tensest, not a wait in the medbay.
+                if self.charge_surges_fired & 0b01 == 0 && self.escape_timer <= 40.0 {
+                    self.charge_surges_fired |= 0b01;
+                    crate::enemy::ai::spawn_charge_surge(
+                        &mut self.enemies,
+                        self.frame_count,
+                        4,
+                        1,
+                        0,
+                    );
+                }
+                if self.charge_surges_fired & 0b10 == 0 && self.escape_timer <= 15.0 {
+                    self.charge_surges_fired |= 0b10;
+                    crate::enemy::ai::spawn_charge_surge(
+                        &mut self.enemies,
+                        self.frame_count,
+                        3,
+                        0,
+                        2,
+                    );
+                }
+
                 if self.escape_timer <= 0.0 {
                     self.engine_state = EngineState::Escaped;
                     self.phase = GamePhase::Victory;

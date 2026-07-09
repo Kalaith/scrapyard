@@ -6,6 +6,7 @@ use crate::ship::interior::{Room, RoomType};
 use crate::ship::ship::{ModuleState, ModuleType};
 use crate::simulation::constants::*;
 use crate::simulation::events::{EventBus, GameEvent};
+use crate::simulation::gameplay::ModuleRegistry;
 use crate::state::game_state::{GameState, PayoutBreakdown};
 
 impl GameState {
@@ -193,17 +194,17 @@ impl GameState {
             )
     }
 
-    pub fn room_power_need(room: &Room) -> i32 {
+    pub fn room_power_need(room: &Room, registry: &ModuleRegistry) -> i32 {
         let repaired = room.repaired_count() as i32;
         if repaired == 0 {
             return 0;
         }
 
+        // Weapon/defense/utility/engine draws are data-driven per point (modules.json);
+        // cockpit + medbay aren't grid modules so they keep constant costs.
         let cost = match room.room_type {
-            RoomType::Module(ModuleType::Weapon) => POWER_COST_WEAPON,
-            RoomType::Module(ModuleType::Defense) => POWER_COST_DEFENSE,
-            RoomType::Module(ModuleType::Utility) => POWER_COST_UTILITY,
-            RoomType::Module(ModuleType::Engine) => POWER_COST_ENGINE,
+            RoomType::Module(ModuleType::Core) | RoomType::Module(ModuleType::Empty) => 0,
+            RoomType::Module(mt) => registry.power_cost(mt),
             RoomType::Cockpit => POWER_COST_COCKPIT,
             RoomType::Medbay => POWER_COST_MEDBAY,
             _ => 0,
@@ -215,13 +216,13 @@ impl GameState {
         self.interior
             .rooms
             .get(room_idx)
-            .map(Self::room_power_need)
+            .map(|room| Self::room_power_need(room, &self.module_registry))
             .unwrap_or(0)
     }
 
-    pub fn active_room_power_draw(room: &Room) -> i32 {
+    pub fn active_room_power_draw(room: &Room, registry: &ModuleRegistry) -> i32 {
         if room.powered {
-            Self::room_power_need(room)
+            Self::room_power_need(room, registry)
         } else {
             0
         }
@@ -234,7 +235,7 @@ impl GameState {
         if !Self::is_routeable_room(room) || room.powered || room.repaired_count() == 0 {
             return false;
         }
-        self.used_power + Self::room_power_need(room) <= self.total_power
+        self.used_power + Self::room_power_need(room, &self.module_registry) <= self.total_power
     }
 
     pub fn toggle_room_power(&mut self, room_idx: usize, events: &mut EventBus) -> bool {
@@ -433,9 +434,8 @@ impl GameState {
         let scrap_bonus = self.resources.scrap / PAYOUT_SCRAP_DIVISOR;
         let combat_bonus = self.enemies_destroyed * PAYOUT_ENEMY_DESTROYED_BONUS;
         let contract_bonus = self.upgrades.get_level("targeting_tier") as i32 * 100;
-        let risk_bonus = (self.threat_signature * PAYOUT_SIGNATURE_BONUS)
-            .min(PAYOUT_MAX_RISK_BONUS)
-            + contract_bonus;
+        // Uncapped: if danger scales with unbanked value, the reward must keep pace.
+        let risk_bonus = (self.threat_signature.max(0) * PAYOUT_SIGNATURE_BONUS) + contract_bonus;
         let stress_penalty =
             (self.engine_stress as i32).max(0) * PAYOUT_ENGINE_STRESS_PENALTY_PER_POINT;
         let low_hull_penalty = if hull_pct < 0.35 { 120 } else { 0 };
@@ -490,7 +490,10 @@ impl GameState {
             self.upgrades.get_level("repair_expertise") as i32 * META_REPAIR_DISCOUNT_PER_LEVEL;
         let discount = support_discount + expertise_discount;
         let scrap_cost = (REPAIR_SCRAP_COST - discount).max(1);
-        Some((scrap_cost, Self::room_power_need(room)))
+        Some((
+            scrap_cost,
+            Self::room_power_need(room, &self.module_registry),
+        ))
     }
 
     pub fn attempt_interior_repair(
@@ -551,6 +554,53 @@ impl GameState {
             }
         }
         self.update_power();
+        true
+    }
+
+    /// Scrap cost to raise the module in `room_idx` one level, if it's an upgradeable
+    /// (weapon/shield), fully-repaired system that isn't already maxed.
+    pub fn interior_upgrade_cost(&self, room_idx: usize) -> Option<i32> {
+        let room = self.interior.rooms.get(room_idx)?;
+        if !room.is_fully_repaired()
+            || !matches!(
+                room.room_type,
+                RoomType::Module(ModuleType::Weapon) | RoomType::Module(ModuleType::Defense)
+            )
+        {
+            return None;
+        }
+        let (gx, gy) = room.module_index?;
+        let module = self.ship.grid[gx][gy].as_ref()?;
+        if module.level >= MODULE_MAX_LEVEL {
+            return None;
+        }
+        Some(MODULE_UPGRADE_SCRAP_BASE * module.level as i32)
+    }
+
+    /// In-run upgrade: spend scrap to raise a finished weapon/shield a level (+damage/+shield).
+    /// This is the late-run scrap sink the economy was missing.
+    pub fn attempt_interior_upgrade(&mut self, room_idx: usize, events: &mut EventBus) -> bool {
+        let Some(cost) = self.interior_upgrade_cost(room_idx) else {
+            return false;
+        };
+        if self.resources.scrap < cost {
+            return false;
+        }
+        let Some((gx, gy)) = self.interior.rooms[room_idx].module_index else {
+            return false;
+        };
+        self.resources.deduct(cost);
+        if let Some(module) = self.ship.grid[gx][gy].as_mut() {
+            module.level += 1;
+            module.max_health *= MODULE_UPGRADE_HP_MULTIPLIER;
+            module.health = module.max_health;
+            let new_level = module.level;
+            events.push_game(GameEvent::ModuleUpgraded {
+                x: gx,
+                y: gy,
+                new_level,
+            });
+        }
         true
     }
 

@@ -100,6 +100,26 @@ fn spawn_siege(enemies: &mut Vec<Enemy>, frame_count: u64) {
     enemies.push(Enemy::new(id, EnemyType::SiegeConstruct, pos));
 }
 
+/// Scripted charge surge: drops a burst of drones, optional guards, and leeches that home
+/// on the engine bay, so the final countdown forces the player to defend rather than hide.
+pub fn spawn_charge_surge(
+    enemies: &mut Vec<Enemy>,
+    frame_count: u64,
+    drones: usize,
+    guards: usize,
+    leeches: usize,
+) {
+    for _ in 0..drones {
+        spawn_drone(enemies, frame_count);
+    }
+    for _ in 0..guards {
+        spawn_guard(enemies, frame_count);
+    }
+    for _ in 0..leeches {
+        spawn_leech(enemies, frame_count);
+    }
+}
+
 pub fn spawn_boss(enemies: &mut Vec<Enemy>, events: &mut EventBus, frame_count: u64) {
     // Spawn boss at top center
     let pos = vec2(SCREEN_WIDTH / 2.0, -100.0);

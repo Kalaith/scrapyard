@@ -311,7 +311,7 @@ fn draw_system_detail_row(state: &GameState, room: &Room, x: f32, y: f32) {
 fn draw_route_row(state: &GameState, room: &Room, slot: usize, x: f32, y: f32, w: f32) {
     let repaired = room.repaired_count();
     let total = room.repair_points.len().max(1);
-    let draw = GameState::room_power_need(room);
+    let draw = GameState::room_power_need(room, &state.module_registry);
     let can_power = repaired > 0 && (room.powered || state.used_power + draw <= state.total_power);
     let color = if room.powered {
         theme::success()
@@ -406,6 +406,33 @@ fn prompt_text(state: &GameState) -> (&'static str, String, Color) {
                 theme::danger()
             },
         );
+    }
+
+    // Standing in a finished weapon/shield room: offer an in-run upgrade.
+    if let Some(room) = state.interior.room_at(state.player.position) {
+        if let Some(room_idx) = state.interior.rooms.iter().position(|r| r.id == room.id) {
+            if let Some(cost) = state.interior_upgrade_cost(room_idx) {
+                let can_afford = state.resources.scrap >= cost;
+                let body = if can_afford {
+                    format!(
+                        "Press E to upgrade {} for {} scrap (+damage).",
+                        room.name(),
+                        cost
+                    )
+                } else {
+                    format!("Need {} scrap to upgrade {}.", cost, room.name())
+                };
+                return (
+                    "UPGRADE",
+                    body,
+                    if can_afford {
+                        theme::success()
+                    } else {
+                        theme::danger()
+                    },
+                );
+            }
+        }
     }
 
     if let Some(step) = state.tutorial_state.current_step(&state.tutorial_config) {

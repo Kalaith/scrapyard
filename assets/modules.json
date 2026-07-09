@@ -18,29 +18,20 @@
         "defense": {
             "name": "Shield Generator",
             "base_cost": 30,
-            "power_consumption": 3,
-            "max_health": 150.0,
-            "shield_strength": 50.0,
-            "recharge_rate": 5.0
+            "power_consumption": 1,
+            "max_health": 150.0
         },
         "utility": {
             "name": "Recycler",
             "base_cost": 25,
             "power_consumption": 1,
-            "max_health": 80.0,
-            "scrap_bonus": 0.2
+            "max_health": 80.0
         },
         "engine": {
             "name": "Hyperdrive",
             "base_cost": 500,
-            "power_consumption": 50,
-            "max_health": 500.0,
-            "charge_time": 60.0
+            "power_consumption": 1,
+            "max_health": 500.0
         }
-    },
-    "upgrade_scaling": {
-        "max_level": 5,
-        "hp_multiplier_per_level": 1.5,
-        "cost_multiplier_per_level": 0.5
     }
 }

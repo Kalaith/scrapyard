@@ -78,4 +78,6 @@ pub struct SaveData {
     pub nanite_alert: f32,
     #[serde(default)]
     pub engine_ready_at: Option<f32>,
+    #[serde(default)]
+    pub hull_breach_stage: usize,
 }

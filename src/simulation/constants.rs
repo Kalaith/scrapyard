@@ -68,10 +68,9 @@ pub const SPAWN_INTERVAL_SIEGE: f32 = 28.0;
 
 // Power system
 pub const POWER_PER_CORE_POINT: i32 = 1; // Each reactor repair point gives 1 power
-pub const POWER_COST_WEAPON: i32 = 1;
-pub const POWER_COST_DEFENSE: i32 = 1;
-pub const POWER_COST_UTILITY: i32 = 1;
-pub const POWER_COST_ENGINE: i32 = 1; // Was 2, now matches other modules
+                                         // Per-point draw for weapon/defense/utility/engine rooms is now data-driven from
+                                         // modules.json (`power_consumption`). Cockpit + medbay aren't grid modules, so they keep
+                                         // constant per-point costs here.
 pub const POWER_COST_COCKPIT: i32 = 1;
 pub const POWER_COST_MEDBAY: i32 = 1;
 
@@ -79,7 +78,13 @@ pub const POWER_COST_MEDBAY: i32 = 1;
 pub const RECYCLER_SIGNATURE_BONUS: i32 = 2;
 pub const ENGINE_CHARGE_SIGNATURE_BONUS: i32 = 5;
 pub const LIFE_SUPPORT_OFFLINE_SIGNATURE: i32 = 2;
-pub const HIGH_VALUE_SIGNATURE_DIVISOR: i32 = 250;
+// Divisor on the extractable-value (greed) term of the signature. Lowered from 250 so the
+// player's unbanked wealth registers on the threat readout — danger *is* the paycheck.
+pub const HIGH_VALUE_SIGNATURE_DIVISOR: i32 = 130;
+// Nanite alert above its base leaks into the signature (long/loud runs draw more), and the
+// alert climbs faster when zero power is routed — the swarm hunts the silence (anti-turtle).
+pub const NANITE_ALERT_SIGNATURE_DIVISOR: f32 = 6.0;
+pub const NANITE_ALERT_SILENCE_ACCEL: f32 = 0.4;
 
 // Economy
 pub const BASE_ESCAPE_CREDITS: i32 = 500;
@@ -94,7 +99,8 @@ pub const PAYOUT_HULL_MAX_BONUS: i32 = 300;
 pub const PAYOUT_ENEMY_DESTROYED_BONUS: i32 = 8;
 pub const PAYOUT_SCRAP_DIVISOR: i32 = 2;
 pub const PAYOUT_SIGNATURE_BONUS: i32 = 12;
-pub const PAYOUT_MAX_RISK_BONUS: i32 = 240;
+// Risk bonus is intentionally uncapped: if danger scales with unbanked value, the reward
+// must keep pace, or greed rationally stops while the threat keeps climbing.
 pub const PAYOUT_ENGINE_STRESS_PENALTY_PER_POINT: i32 = 4;
 
 // Persistent upgrade effects
@@ -135,6 +141,15 @@ pub const HULL_UPGRADE_BONUS: f32 = 200.0; // HP added per hull upgrade level
 // Module upgrades
 pub const MODULE_MAX_LEVEL: u8 = 5;
 pub const MODULE_UPGRADE_HP_MULTIPLIER: f32 = 1.5; // HP multiplier per upgrade level
+                                                   // In-run upgrade (E on a fully-repaired weapon/shield): scrap cost scales with level, and
+                                                   // each level adds this fraction to turret damage/fire-rate and shield coverage — the
+                                                   // late-run scrap sink the economy was missing.
+pub const MODULE_UPGRADE_SCRAP_BASE: i32 = 45;
+pub const MODULE_UPGRADE_EFFECT_PER_LEVEL: f32 = 0.5;
+
+// Interior hazards: when the hull crosses these fractions, a breach knocks out a repair
+// point in a live system, forcing the player back into the interior to re-repair.
+pub const HULL_BREACH_THRESHOLDS: [f32; 3] = [0.6, 0.4, 0.2];
 
 // Repair costs
 pub const REPAIR_SCRAP_COST: i32 = 10; // Scrap cost per interior repair point

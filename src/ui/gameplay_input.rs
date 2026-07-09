@@ -340,17 +340,18 @@ impl InputManager {
 
         let room = &state.interior.rooms[room_idx];
 
-        // Find repair point at player position
-        let Some(point_idx) = room.repair_point_at(state.player.position) else {
-            return;
-        };
+        // If standing on an unrepaired point, repair it.
+        if let Some(point_idx) = room.repair_point_at(state.player.position) {
+            if !room.repair_points[point_idx].repaired {
+                if state.attempt_interior_repair(room_idx, point_idx, events) {
+                    state.advance_tutorial_after_repair(room_idx);
+                }
+                return;
+            }
+        }
 
-        // Attempt repair
-        if !state.attempt_interior_repair(room_idx, point_idx, events) {
-            return;
-        };
-
-        state.advance_tutorial_after_repair(room_idx);
+        // Otherwise, a finished weapon/shield room can be upgraded in-run for scrap.
+        state.attempt_interior_upgrade(room_idx, events);
     }
 }
 

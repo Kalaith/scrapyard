@@ -70,6 +70,12 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
             // Decrease cooldown
             module.cooldown -= dt;
 
+            // In-run upgrades boost turret output (damage + fire rate) per level.
+            let level_mult =
+                1.0 + (module.level.saturating_sub(1) as f32 * MODULE_UPGRADE_EFFECT_PER_LEVEL);
+            let effective_damage = effective_damage * level_mult;
+            let effective_fire_rate = effective_fire_rate * level_mult;
+
             // Debug prints every 60 frames (approx 1 sec) to reduce spam?
             // Or just print if cooldown <= 0?
             if module.cooldown <= 0.0 && state.frame_count.is_multiple_of(60) {
@@ -274,7 +280,15 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
             && !room.repair_points.is_empty()
         {
             let repair_pct = room.repaired_count() as f32 / room.repair_points.len() as f32;
-            shield_reduction += repair_pct * 0.5; // Each shield room can block up to 50%
+            // In-run upgrades widen shield coverage per level.
+            let level = room
+                .module_index
+                .and_then(|(gx, gy)| state.ship.grid[gx][gy].as_ref())
+                .map(|m| m.level)
+                .unwrap_or(1);
+            let level_mult =
+                1.0 + (level.saturating_sub(1) as f32 * MODULE_UPGRADE_EFFECT_PER_LEVEL);
+            shield_reduction += repair_pct * 0.5 * level_mult; // Each shield room blocks up to 50%
         }
     }
     // Cap at 80% damage reduction max

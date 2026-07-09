@@ -93,6 +93,7 @@ impl GameState {
             engine_stress: self.engine_stress,
             nanite_alert: self.nanite_alert,
             engine_ready_at: self.engine_ready_at,
+            hull_breach_stage: self.hull_breach_stage,
         };
         macroquad_toolkit::persistence::save_json_atomic(path, &save_data).map_err(to_io_error)
     }
@@ -181,6 +182,7 @@ impl GameState {
             state.nanite_alert = save_data.nanite_alert;
         }
         state.engine_ready_at = save_data.engine_ready_at;
+        state.hull_breach_stage = save_data.hull_breach_stage;
         state.update_power();
 
         // Restore player position
