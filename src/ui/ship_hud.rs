@@ -179,7 +179,7 @@ impl Renderer {
         for enemy in &state.enemies {
             let px = map.x + (enemy.position.x / screen_width()).clamp(0.0, 1.0) * map.w;
             let py = map.y + (enemy.position.y / screen_height()).clamp(0.0, 1.0) * map.h;
-            draw_circle(px, py, 3.0, enemy_color(&enemy.enemy_type));
+            draw_radar_marker(px, py, &enemy.enemy_type);
         }
     }
 
@@ -670,6 +670,21 @@ fn enemy_color(enemy_type: &EnemyType) -> Color {
         EnemyType::Nanoguard | EnemyType::SiegeConstruct | EnemyType::Burrower => theme::warning(),
         EnemyType::Leech => theme::cyan(),
         EnemyType::Nanodrone => theme::danger(),
+    }
+}
+
+/// Shape-code radar blips by enemy type so they're distinguishable without relying on
+/// colour alone (colourblind accessibility): each type gets a distinct polygon.
+fn draw_radar_marker(px: f32, py: f32, enemy_type: &EnemyType) {
+    let color = enemy_color(enemy_type);
+    match enemy_type {
+        // (sides, radius, rotation-degrees)
+        EnemyType::Nanodrone => draw_circle(px, py, 2.5, color),
+        EnemyType::Nanoguard => draw_poly(px, py, 3, 4.5, -90.0, color), // triangle up
+        EnemyType::Leech => draw_poly(px, py, 4, 3.5, 45.0, color),      // diamond
+        EnemyType::SiegeConstruct => draw_poly(px, py, 4, 5.0, 0.0, color), // square
+        EnemyType::Burrower => draw_poly(px, py, 3, 4.5, 90.0, color),   // triangle down
+        EnemyType::Boss => draw_poly(px, py, 6, 6.0, 0.0, color),        // hexagon
     }
 }
 

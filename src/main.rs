@@ -122,9 +122,9 @@ async fn main() {
         clear_background(BLACK);
         renderer.draw(&game_state);
 
-        // Debug: show sound status
-        if game_state.settings.show_fps && sound_manager.has_sounds() {
-            draw_ui_text("♪ Sound ON", 10.0, 30.0, 16.0, GREEN);
+        // "Show FPS" setting now actually shows the frame rate.
+        if game_state.settings.show_fps {
+            draw_ui_text(&format!("FPS {}", get_fps()), 10.0, 30.0, 16.0, GREEN);
         }
     };
 

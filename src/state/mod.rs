@@ -1,5 +1,4 @@
 mod game_actions; // Player actions (impl GameState)
-#[cfg(not(target_arch = "wasm32"))]
 mod game_persistence; // Save/load (impl GameState)
 pub mod game_state;
 mod game_update; // Update logic (impl GameState)
@@ -51,32 +50,16 @@ pub fn process_ui_events(state: &mut GameState, events: &mut EventBus) {
                 state.start_new_game();
             }
             UIEvent::SaveGame(slot) => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if let Err(e) = state.save_to_slot(slot) {
-                        eprintln!("Failed to save: {}", e);
-                    }
-                }
-                #[cfg(target_arch = "wasm32")]
-                {
-                    let _ = slot; // Suppress unused warning
-                    eprintln!("Save not supported in WebGL");
+                if let Err(e) = state.save_to_slot(slot) {
+                    eprintln!("Failed to save: {}", e);
                 }
                 state.paused = false;
             }
             UIEvent::LoadGame(slot) => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if let Ok(loaded) = GameState::load_from_slot(slot) {
-                        *state = loaded;
-                    } else {
-                        eprintln!("Failed to load slot {}", slot);
-                    }
-                }
-                #[cfg(target_arch = "wasm32")]
-                {
-                    let _ = slot; // Suppress unused warning
-                    eprintln!("Load not supported in WebGL");
+                if let Ok(loaded) = GameState::load_from_slot(slot) {
+                    *state = loaded;
+                } else {
+                    eprintln!("Failed to load slot {}", slot);
                 }
             }
             UIEvent::ExitGame => {

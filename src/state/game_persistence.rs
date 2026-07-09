@@ -1,19 +1,18 @@
 //! Game persistence (save/load)
 //!
-//! Save and load functionality - only available on native platforms (not WASM).
+//! Native builds save to JSON files on disk; WASM builds use the toolkit's keyed
+//! browser storage (same pattern as settings), so save/load works on WebGL too.
 
 use crate::enemy::entities::{Enemy, Particle, Projectile, ScrapPile};
 use crate::state::game_state::GameState;
 use crate::state::persistence::SaveData;
+use crate::state::persistence::{SavedEnemy, SavedParticle, SavedProjectile, SavedScrapPile};
 use macroquad::prelude::*;
-
-#[cfg(not(target_arch = "wasm32"))]
 use std::io;
 
-#[cfg(not(target_arch = "wasm32"))]
-use crate::state::persistence::{SavedEnemy, SavedParticle, SavedProjectile, SavedScrapPile};
+#[cfg(target_arch = "wasm32")]
+const GAME_NAME: &str = "scrapyard";
 
-#[cfg(not(target_arch = "wasm32"))]
 impl GameState {
     pub fn save(&self, path: &str) -> std::io::Result<()> {
         let save_data = SaveData {
@@ -95,12 +94,11 @@ impl GameState {
             engine_ready_at: self.engine_ready_at,
             hull_breach_stage: self.hull_breach_stage,
         };
-        macroquad_toolkit::persistence::save_json_atomic(path, &save_data).map_err(to_io_error)
+        persist_save(path, &save_data).map_err(to_io_error)
     }
 
     pub fn load_from_file(path: &str) -> std::io::Result<Self> {
-        let save_data: SaveData =
-            macroquad_toolkit::persistence::load_json(path).map_err(to_io_error)?;
+        let save_data: SaveData = persist_load(path).map_err(to_io_error)?;
         let mut state = GameState::new();
         state.ship = save_data.ship;
         state.resources = save_data.resources;
@@ -211,7 +209,26 @@ impl GameState {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 fn to_io_error(error: String) -> io::Error {
     io::Error::other(error)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn persist_save(path: &str, data: &SaveData) -> Result<(), String> {
+    macroquad_toolkit::persistence::save_json_atomic(path, data)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn persist_save(path: &str, data: &SaveData) -> Result<(), String> {
+    macroquad_toolkit::persistence::save_json_key(GAME_NAME, path, data)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn persist_load(path: &str) -> Result<SaveData, String> {
+    macroquad_toolkit::persistence::load_json(path)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn persist_load(path: &str) -> Result<SaveData, String> {
+    macroquad_toolkit::persistence::load_json_key(GAME_NAME, path)
 }
