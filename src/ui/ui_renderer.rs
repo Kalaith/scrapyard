@@ -133,19 +133,46 @@ impl Renderer {
             RED,
         );
 
-        let stats_y = screen_height() / 2.0 - 20.0;
+        let stats_y = screen_height() / 2.0 - 40.0;
         let minutes = (state.time_survived / 60.0).floor() as i32;
         let seconds = (state.time_survived % 60.0).floor() as i32;
-        let payout = state
-            .last_payout
-            .unwrap_or_else(|| state.calculate_failure_payout());
-        let stats = [
-            format!("Recovery Value: {} credits", payout.total),
-            format!("Lost Penalties: -{} credits", payout.penalties),
-            format!("Scrap Remaining: {}", state.resources.scrap),
-            format!("Kills: {}", state.enemies_destroyed),
-            format!("Time Survived: {:02}:{:02}", minutes, seconds),
-        ];
+
+        // Death forensics: prove the death was a chosen death, not an unfair one.
+        // The honest "value left behind" is the full escape payout the player forfeited by
+        // not launching — nothing is banked on death.
+        let foregone = state.calculate_payout().total;
+        let (headline, headline_color) = if let Some(ready) = state.engine_ready_at {
+            let rm = (ready / 60.0).floor() as i32;
+            let rs = (ready % 60.0).floor() as i32;
+            (
+                format!("ESCAPE WAS AVAILABLE AT {:02}:{:02} — YOU STAYED", rm, rs),
+                color_u8!(255, 180, 80, 255),
+            )
+        } else {
+            (
+                "THE ENGINE NEVER REACHED ESCAPE-READY".to_string(),
+                color_u8!(200, 120, 120, 255),
+            )
+        };
+        let head_size = measure_ui_text(&headline, None, 22, 1.0);
+        draw_ui_text(
+            &headline,
+            screen_width() / 2.0 - head_size.width / 2.0,
+            stats_y - 34.0,
+            22.0,
+            headline_color,
+        );
+
+        let mut stats: Vec<String> = Vec::new();
+        if let Some(ready) = state.engine_ready_at {
+            let extra = (state.time_survived - ready).max(0.0) as i32;
+            stats.push(format!("You stayed {}s longer, chasing the payout", extra));
+        }
+        stats.push(format!("Value left behind: {} credits", foregone));
+        stats.push(format!("Died holding: {} scrap", state.resources.scrap));
+        stats.push(format!("Kills: {}", state.enemies_destroyed));
+        stats.push(format!("Time Survived: {:02}:{:02}", minutes, seconds));
+        stats.push("Banked this run: 0 — a death costs everything".to_string());
 
         for (i, stat) in stats.iter().enumerate() {
             let s = measure_ui_text(stat, None, 24, 1.0);

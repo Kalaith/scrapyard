@@ -34,6 +34,104 @@ impl GameState {
         false
     }
 
+    /// Apply combat damage to the module at grid `(gx, gy)`.
+    ///
+    /// The core has no repair-point staging — it *is* the hull, so its damage bleeds
+    /// straight into `ship_integrity`. Every other module soaks damage until it crosses
+    /// zero, at which point one repair point is knocked out: the module drops offline and
+    /// stays down until re-repaired, and if that was its last point it is Destroyed.
+    /// This is what makes defense spatial — where an enemy attacks now matters.
+    pub fn apply_module_damage(
+        &mut self,
+        gx: usize,
+        gy: usize,
+        damage: f32,
+        events: &mut EventBus,
+    ) {
+        let module_type = match self.ship.grid.get(gx).and_then(|row| row.get(gy)) {
+            Some(Some(m)) => m.module_type,
+            _ => {
+                self.ship_integrity -= damage;
+                return;
+            }
+        };
+
+        if module_type == ModuleType::Core {
+            self.ship_integrity -= damage;
+            return;
+        }
+
+        let Some(room_idx) = self
+            .interior
+            .rooms
+            .iter()
+            .position(|r| r.module_index == Some((gx, gy)))
+        else {
+            self.ship_integrity -= damage;
+            return;
+        };
+
+        {
+            let Some(module) = self.ship.grid[gx][gy].as_mut() else {
+                return;
+            };
+            if module.state == ModuleState::Destroyed {
+                // Already gutted — a siege parked on a dead module still gnaws the hull.
+                self.ship_integrity -= damage * 0.5;
+                return;
+            }
+            module.health -= damage;
+            if module.health > 0.0 {
+                return;
+            }
+        }
+
+        // Health crossed zero: knock out one repair point.
+        if let Some(point) = self.interior.rooms[room_idx]
+            .repair_points
+            .iter_mut()
+            .rev()
+            .find(|p| p.repaired)
+        {
+            point.repaired = false;
+        }
+
+        if self.interior.rooms[room_idx].repaired_count() == 0 {
+            self.interior.rooms[room_idx].powered = false;
+            if let Some(module) = self.ship.grid[gx][gy].as_mut() {
+                module.state = ModuleState::Destroyed;
+                module.health = 0.0;
+            }
+            events.push_game(GameEvent::ModuleDestroyed { x: gx, y: gy });
+        } else {
+            if let Some(module) = self.ship.grid[gx][gy].as_mut() {
+                module.health = MODULE_POINT_HEALTH;
+            }
+            events.push_game(GameEvent::ModuleDamaged {
+                x: gx,
+                y: gy,
+                damage: MODULE_POINT_HEALTH,
+            });
+        }
+        self.update_power();
+    }
+
+    /// Threat tier the current signature sits in (0 = grace, 4 = maximum).
+    pub fn signal_tier(&self) -> u8 {
+        let s = self.threat_signature;
+        if s >= WAVE_T3_POWER {
+            4
+        } else if s >= WAVE_T2_POWER {
+            3
+        } else if s >= WAVE_T1_POWER {
+            2
+        } else if s >= WAVE_GRACE_POWER {
+            1
+        } else {
+            0
+        }
+    }
+
     pub fn attempt_upgrade(&mut self, x: usize, y: usize, events: &mut EventBus) -> bool {
         let upgrade_cost = if let Some(module) = &self.ship.grid[x][y] {
             if module.state == ModuleState::Destroyed || module.level >= MODULE_MAX_LEVEL {

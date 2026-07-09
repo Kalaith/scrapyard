@@ -378,12 +378,19 @@ fn prompt_text(state: &GameState) -> (&'static str, String, Color) {
             } else {
                 String::new()
             };
+            // Surface the engine's hidden cost: each engine repair adds stress toward cascade.
+            let stress_note = if room.room_type == RoomType::Module(ModuleType::Engine) {
+                format!(" +{:.0} ENGINE STRESS.", STRESS_GAIN_PER_REPAIR)
+            } else {
+                String::new()
+            };
             format!(
-                "Press E to repair {} point {} for {} scrap.{}",
+                "Press E to repair {} point {} for {} scrap.{}{}",
                 room.name(),
                 point_idx + 1,
                 scrap_cost,
-                route_note
+                route_note,
+                stress_note
             )
         } else if state.resources.scrap < scrap_cost {
             format!("Need {} scrap to repair {}.", scrap_cost, room.name())
@@ -441,10 +448,12 @@ fn tutorial_prompt(id: &str, fallback: &str) -> String {
                 .to_string()
         }
         "repair_engine" => {
-            "Repair and power the engine only when the value is worth the attack.".to_string()
+            "Each engine repair adds STRESS toward cascade. Repair, then power it to launch."
+                .to_string()
         }
         "complete" => {
-            "Stay for more payout or launch before the signal overwhelms you.".to_string()
+            "You can always leave early — poor. Stay for payout, or launch before the signal buries you."
+                .to_string()
         }
         _ => fallback.replace('\n', " "),
     }

@@ -20,13 +20,13 @@
         },
         {
             "id": "repair_engine",
-            "message": "When the payout is worth the danger, repair and route power to the ENGINE.",
+            "message": "Repair and route power to the ENGINE to escape.\nEach engine repair adds STRESS toward a cascade — repair steadily, don't panic.",
             "target_room": 20,
             "show_highlight": true
         },
         {
             "id": "complete",
-            "message": "Escape is a commitment.\nStay longer for a bigger payout, or launch before the signal overwhelms you.",
+            "message": "Escape is a commitment. You can always leave early — poor.\nStay longer for a bigger payout, or launch before the signal overwhelms you.",
             "target_room": null,
             "show_highlight": false
         }

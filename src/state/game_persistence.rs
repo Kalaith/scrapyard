@@ -90,6 +90,9 @@ impl GameState {
             tutorial_completed: self.tutorial_state.completed,
             life_support_timer: self.life_support_timer,
             enemies_destroyed: self.enemies_destroyed,
+            engine_stress: self.engine_stress,
+            nanite_alert: self.nanite_alert,
+            engine_ready_at: self.engine_ready_at,
         };
         macroquad_toolkit::persistence::save_json_atomic(path, &save_data).map_err(to_io_error)
     }
@@ -172,6 +175,12 @@ impl GameState {
         }
         state.life_support_timer = save_data.life_support_timer;
         state.enemies_destroyed = save_data.enemies_destroyed;
+        state.engine_stress = save_data.engine_stress;
+        // Older saves predate this field (default 0.0); keep the base alert in that case.
+        if save_data.nanite_alert > 0.0 {
+            state.nanite_alert = save_data.nanite_alert;
+        }
+        state.engine_ready_at = save_data.engine_ready_at;
         state.update_power();
 
         // Restore player position

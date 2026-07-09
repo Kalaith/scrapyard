@@ -43,8 +43,12 @@ pub const ENEMY_SIEGE_DAMAGE: f32 = 30.0;
 pub const ENEMY_BOSS_HP: f32 = 1000.0;
 pub const ENEMY_BOSS_SPEED: f32 = 20.0;
 pub const ENEMY_BOSS_DAMAGE: f32 = 50.0;
-pub const BOSS_ABILITY_COOLDOWN: f32 = 8.0; // Seconds between boss abilities
-pub const BOSS_SPLIT_COUNT: usize = 3; // Number of drones spawned on boss death
+pub const BOSS_ABILITY_COOLDOWN: f32 = 8.0; // Seconds between boss EMP pulses
+pub const BOSS_SPLIT_COUNT: usize = 3; // Number of fragments spawned on boss death
+pub const BOSS_FRAGMENT_HP: f32 = 40.0; // HP of each fragment drone
+
+// Per-module damage: modules soak hits before losing a repair point.
+pub const MODULE_POINT_HEALTH: f32 = 60.0; // Damage to knock out one repair point
 
 // Wave Logic. These thresholds use routed system signature, not raw reactor capacity.
 pub const WAVE_GRACE_POWER: i32 = 2;
@@ -121,6 +125,8 @@ pub const MODULE_DESTROY_TRAUMA: f32 = 0.4;
 pub const CORE_DESTROY_TRAUMA: f32 = 1.0;
 pub const ENGINE_ACTIVATE_TRAUMA: f32 = 0.3;
 pub const ENEMY_KILL_TRAUMA: f32 = 0.1;
+pub const THREAT_ESCALATE_TRAUMA: f32 = 0.18; // Sting when the signal crosses a tier
+pub const EMP_PULSE_TRAUMA: f32 = 0.35; // Boss EMP knocks power offline
 
 // Ship
 pub const SHIP_BASE_INTEGRITY: f32 = 1000.0;
@@ -134,11 +140,17 @@ pub const MODULE_UPGRADE_HP_MULTIPLIER: f32 = 1.5; // HP multiplier per upgrade 
 pub const REPAIR_SCRAP_COST: i32 = 10; // Scrap cost per interior repair point
 
 // Engine Stress System
-pub const STRESS_GAIN_PER_REPAIR: f32 = 6.0;
-pub const STRESS_DECAY_IDLE: f32 = 2.0; // Per second
+// Guaranteed-floor tuning: 8 engine points x 3.0 = 24 stress, well under the 46
+// cascade threshold, so a natural-pace engine repair can never cascade on its own.
+pub const STRESS_GAIN_PER_REPAIR: f32 = 3.0;
+// Per-second idle decay of engine stress.
+pub const STRESS_DECAY_IDLE: f32 = 2.0;
+// Base stress per second while charging (scaled by nanite alert). Tuned so a quiet run
+// (alert near base) climbs ~21 stress across the 60s charge from a cool engine, finishing
+// under the cascade threshold; a loud/long run pushes alert up and tips into cascade.
+pub const STRESS_CHARGE_GAIN_BASE: f32 = 0.35;
 pub const STRESS_THRESHOLD_STRAINED: f32 = 16.0;
 pub const STRESS_THRESHOLD_UNSTABLE: f32 = 31.0;
 pub const STRESS_THRESHOLD_CRITICAL: f32 = 46.0;
 pub const CASCADE_DAMAGE_PER_SEC: f32 = 50.0; // Rapid internal damage during cascade
-pub const CASCADE_BOSS_SPAWN_STRESS: f32 = 46.0; // Redundant with threshold but semantic
 pub const NANITE_ALERT_BASE: f32 = 16.0; // Base divisor for charging stress

@@ -16,6 +16,9 @@ pub fn update_combat(state: &mut GameState, dt: f32, events: &mut EventBus) {
 
     // 3. Enemies Attack Modules
     enemy_attacks(state, dt, events);
+
+    // 4. Boss special abilities (EMP pulse)
+    update_boss_abilities(state, dt, events);
 }
 
 fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
@@ -146,6 +149,8 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
     let bucket_size = 100.0;
     use std::collections::HashMap;
     let mut buckets: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
+    // Positions where a boss died this frame — each spawns fragment drones afterwards.
+    let mut boss_deaths: Vec<Vec2> = Vec::new();
 
     // Populate buckets with enemies
     for (i, enemy) in state.enemies.iter().enumerate() {
@@ -215,6 +220,10 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
                                 state.resources.credits += scrap / 2;
                                 state.enemies_destroyed += 1;
 
+                                if enemy.enemy_type == EnemyType::Boss {
+                                    boss_deaths.push(enemy.position);
+                                }
+
                                 events.push_game(GameEvent::EnemyKilled {
                                     x: enemy.position.x,
                                     y: enemy.position.y,
@@ -238,6 +247,20 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
     // Cleanup
     state.projectiles.retain(|p| p.active);
     state.enemies.retain(|e| e.health > 0.0);
+
+    // Boss split-on-death: each dead boss bursts into fragment drones (designed behaviour
+    // that was previously loaded but never used), keeping pressure on at the climax.
+    for pos in boss_deaths {
+        for i in 0..BOSS_SPLIT_COUNT {
+            let angle = (i as f32 / BOSS_SPLIT_COUNT as f32) * std::f32::consts::TAU;
+            let offset = vec2(angle.cos(), angle.sin()) * 40.0;
+            let id = state.enemies.len() as u64 + state.frame_count + i as u64;
+            let mut fragment = Enemy::new(id, EnemyType::Nanodrone, pos + offset);
+            fragment.health = BOSS_FRAGMENT_HP;
+            fragment.max_health = BOSS_FRAGMENT_HP;
+            state.enemies.push(fragment);
+        }
+    }
 }
 
 fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
@@ -259,43 +282,24 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
 
     update_leech_drains(state, dt, events);
 
+    // First pass: resolve each enemy's target module without mutating the ship, so we can
+    // apply staged per-module damage afterwards (avoids aliasing state.enemies + state.ship).
+    let mut hits: Vec<(usize, usize, f32)> = Vec::new();
     for enemy in &mut state.enemies {
         if enemy.health <= 0.0 {
             continue;
         }
 
-        let mut hit_something = false;
-
-        if let Some(grid_pos) = Layout::screen_to_grid(enemy.position) {
-            let (gx, gy) = grid_pos;
-
+        let mut target: Option<(usize, usize)> = None;
+        if let Some((gx, gy)) = Layout::screen_to_grid(enemy.position) {
             'outer: for dx in -1i32..=1 {
                 for dy in -1i32..=1 {
                     let nx = (gx as i32 + dx) as usize;
                     let ny = (gy as i32 + dy) as usize;
-
                     if nx < GRID_WIDTH && ny < GRID_HEIGHT && state.ship.grid[nx][ny].is_some() {
                         let module_pos = Layout::grid_to_screen_center(nx, ny);
-                        let dist = enemy.position.distance(module_pos);
-
-                        if dist < attack_range {
-                            // Apply shield reduction to damage
-                            let base_damage = enemy.damage * dt;
-                            let damage = base_damage * (1.0 - shield_reduction);
-                            state.ship_integrity -= damage;
-
-                            hit_something = true;
-
-                            // Only play sound (emit event) if not already attacking
-                            if !enemy.attacking {
-                                enemy.attacking = true;
-                                events.push_game(GameEvent::ModuleDamaged {
-                                    x: nx,
-                                    y: ny,
-                                    damage,
-                                });
-                            }
-
+                        if enemy.position.distance(module_pos) < attack_range {
+                            target = Some((nx, ny));
                             break 'outer;
                         }
                     }
@@ -303,8 +307,47 @@ fn enemy_attacks(state: &mut GameState, dt: f32, events: &mut EventBus) {
             }
         }
 
-        if !hit_something {
+        if let Some((nx, ny)) = target {
+            let damage = enemy.damage * dt * (1.0 - shield_reduction);
+            hits.push((nx, ny, damage));
+            enemy.attacking = true;
+        } else {
             enemy.attacking = false;
+        }
+    }
+
+    // Second pass: chew the targeted modules (destroyed modules go offline / lose points).
+    for (gx, gy, damage) in hits {
+        state.apply_module_damage(gx, gy, damage, events);
+    }
+}
+
+/// Boss EMP: every `BOSS_ABILITY_COOLDOWN` seconds the boss knocks every routed system
+/// offline, forcing the player to re-route under fire at the moment of maximum tension.
+fn update_boss_abilities(state: &mut GameState, dt: f32, events: &mut EventBus) {
+    let mut emp = false;
+    for enemy in &mut state.enemies {
+        if enemy.enemy_type != EnemyType::Boss || enemy.health <= 0.0 {
+            continue;
+        }
+        enemy.ability_timer += dt;
+        if enemy.ability_timer >= BOSS_ABILITY_COOLDOWN {
+            enemy.ability_timer = 0.0;
+            emp = true;
+        }
+    }
+
+    if emp {
+        let mut knocked = false;
+        for room in &mut state.interior.rooms {
+            if room.powered && GameState::is_routeable_room(room) {
+                room.powered = false;
+                knocked = true;
+            }
+        }
+        if knocked {
+            state.update_power();
+            events.push_game(GameEvent::EmpPulse);
         }
     }
 }

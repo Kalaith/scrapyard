@@ -96,6 +96,11 @@ pub struct GameState {
     pub enemies_destroyed: i32,
     pub last_payout: Option<PayoutBreakdown>,
     pub recent_events: Vec<String>,
+    /// Highest threat tier crossed so far this frame-window, for escalation stings.
+    pub last_signal_tier: u8,
+    /// time_survived at which the engine first became escape-ready (repaired + powered).
+    /// Drives death-screen forensics: proves escape was a choice the player declined.
+    pub engine_ready_at: Option<f32>,
 }
 
 impl GameState {
@@ -160,6 +165,8 @@ impl GameState {
             enemies_destroyed: 0,
             last_payout: None,
             recent_events: vec!["Systems waiting for repair".to_string()],
+            last_signal_tier: 0,
+            engine_ready_at: None,
         };
 
         state.sync_upgrades_from_profile();
@@ -203,6 +210,8 @@ impl GameState {
         self.life_support_timer = 0.0;
         self.enemies_destroyed = 0;
         self.last_payout = None;
+        self.last_signal_tier = 0;
+        self.engine_ready_at = None;
         self.pause_menu_selection = 0;
         self.recent_events.clear();
         self.recent_events
@@ -246,6 +255,23 @@ impl GameState {
         }
     }
 
+    /// Emit a radial burst of particles at a screen position (deterministic angles).
+    pub fn spawn_burst(&mut self, pos: Vec2, color: Color, count: usize, speed: f32, life: f32) {
+        if count == 0 {
+            return;
+        }
+        for i in 0..count {
+            let angle = (i as f32 / count as f32) * std::f32::consts::TAU;
+            let vel = vec2(angle.cos(), angle.sin()) * speed;
+            self.particles.push(Particle::new(pos, vel, life, color));
+        }
+        // Bound the pool so long fights can't grow it without limit.
+        if self.particles.len() > 512 {
+            let overflow = self.particles.len() - 512;
+            self.particles.drain(0..overflow);
+        }
+    }
+
     pub fn record_event(&mut self, event: &GameEvent) {
         let message = match event {
             GameEvent::ModuleRepaired { cost, .. } => format!("Module repaired (-{} scrap)", cost),
@@ -270,6 +296,8 @@ impl GameState {
             }
             GameEvent::EscapeSuccess => "Escape successful".to_string(),
             GameEvent::CoreDestroyed => "Core destroyed".to_string(),
+            GameEvent::ThreatEscalated { tier } => format!("Threat escalated to tier {}", tier),
+            GameEvent::EmpPulse => "EMP pulse! Systems knocked offline".to_string(),
             GameEvent::WeaponFired { .. } => return,
         };
 

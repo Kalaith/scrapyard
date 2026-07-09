@@ -72,4 +72,10 @@ pub struct SaveData {
     pub life_support_timer: f32,
     #[serde(default)]
     pub enemies_destroyed: i32,
+    #[serde(default)]
+    pub engine_stress: f32,
+    #[serde(default)]
+    pub nanite_alert: f32,
+    #[serde(default)]
+    pub engine_ready_at: Option<f32>,
 }

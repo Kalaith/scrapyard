@@ -56,6 +56,10 @@ pub enum GameEvent {
     CoreDestroyed,
     /// Weapon fired a projectile
     WeaponFired { x: f32, y: f32 },
+    /// Threat signature crossed into a higher tier
+    ThreatEscalated { tier: u8 },
+    /// Boss unleashed an EMP pulse that knocked routed systems offline
+    EmpPulse,
 }
 
 /// Event bus for decoupling UI input from game logic updates

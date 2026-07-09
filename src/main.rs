@@ -12,6 +12,7 @@ mod simulation;
 mod state;
 mod ui;
 
+use ship::layout::Layout;
 use state::GameState;
 // use ui::assets::AssetManager;
 use simulation::constants::*;
@@ -72,17 +73,22 @@ async fn main() {
         for event in event_bus.drain_game() {
             game_state.record_event(&event);
             match event {
-                GameEvent::EnemyKilled { .. } => {
+                GameEvent::EnemyKilled { x, y, .. } => {
                     renderer.add_trauma(ENEMY_KILL_TRAUMA);
                     sound_manager.play_sfx(SoundEffect::EnemyKilled, &game_state.settings);
+                    game_state.spawn_burst(vec2(x, y), color_u8!(255, 140, 40, 255), 8, 140.0, 0.5);
                 }
-                GameEvent::ModuleDamaged { damage, .. } => {
-                    renderer.add_trauma(damage * MODULE_DAMAGE_TRAUMA);
+                GameEvent::ModuleDamaged { x, y, damage } => {
+                    renderer.add_trauma((damage * MODULE_DAMAGE_TRAUMA).min(0.3));
                     sound_manager.play_sfx(SoundEffect::ModuleDamaged, &game_state.settings);
+                    let pos = Layout::grid_to_screen_center(x, y);
+                    game_state.spawn_burst(pos, color_u8!(255, 220, 80, 255), 6, 110.0, 0.4);
                 }
-                GameEvent::ModuleDestroyed { .. } => {
+                GameEvent::ModuleDestroyed { x, y } => {
                     renderer.add_trauma(MODULE_DESTROY_TRAUMA);
                     sound_manager.play_sfx(SoundEffect::ModuleDestroyed, &game_state.settings);
+                    let pos = Layout::grid_to_screen_center(x, y);
+                    game_state.spawn_burst(pos, color_u8!(255, 80, 40, 255), 14, 180.0, 0.7);
                 }
                 GameEvent::ModuleRepaired { .. } => {
                     sound_manager.play_sfx(SoundEffect::Repair, &game_state.settings);
@@ -94,6 +100,16 @@ async fn main() {
                 GameEvent::EngineActivated => {
                     renderer.add_trauma(ENGINE_ACTIVATE_TRAUMA);
                     sound_manager.play_sfx(SoundEffect::EngineCharge, &game_state.settings);
+                }
+                GameEvent::ThreatEscalated { .. } => {
+                    renderer.add_trauma(THREAT_ESCALATE_TRAUMA);
+                    sound_manager.play_sfx(SoundEffect::EngineCharge, &game_state.settings);
+                }
+                GameEvent::EmpPulse => {
+                    renderer.add_trauma(EMP_PULSE_TRAUMA);
+                    sound_manager.play_sfx(SoundEffect::ModuleDestroyed, &game_state.settings);
+                    let center = vec2(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0);
+                    game_state.spawn_burst(center, color_u8!(120, 200, 255, 255), 20, 260.0, 0.6);
                 }
                 GameEvent::EscapeSuccess => {
                     sound_manager.play_sfx(SoundEffect::Victory, &game_state.settings);

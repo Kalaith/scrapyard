@@ -195,8 +195,7 @@ pub fn update_enemies(state: &mut GameState, dt: f32) {
                 let dir = (center - enemy.position).normalize_or_zero();
                 enemy.position += dir * enemy.speed * dt;
 
-                // Update ability timer
-                enemy.ability_timer += dt;
+                // Ability timer is advanced in combat::update_boss_abilities (EMP pulses).
 
                 // Boss targets weapons preferentially, then core
                 if let Some(target) = find_priority_target(&state.ship) {

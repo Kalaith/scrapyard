@@ -9,8 +9,12 @@ use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
 
 impl Renderer {
     pub fn draw_gameplay(&self, state: &GameState) {
-        // Get screen shake offset for trauma feedback
-        let shake = self.get_shake_offset();
+        // Get screen shake offset for trauma feedback (honour the settings toggle).
+        let shake = if state.settings.screen_shake {
+            self.get_shake_offset()
+        } else {
+            Vec2::ZERO
+        };
 
         match state.view_mode {
             ViewMode::Exterior => {

@@ -21,12 +21,38 @@ impl GameState {
             crate::enemy::ai::update_wave_logic(self, dt, events);
             crate::enemy::ai::update_enemies(self, dt);
             crate::enemy::combat::update_combat(self, dt, events);
+            self.update_particles(dt);
             self.frame_count += 1;
             self.time_survived += dt;
 
             self.update_support_systems(dt);
+            self.emit_threat_escalation(events);
             self.check_game_over(events);
         }
+    }
+
+    /// Advance and cull the visual particle pool (kill bursts, hit sparks, repair flashes).
+    fn update_particles(&mut self, dt: f32) {
+        let drag = (3.0 * dt).min(1.0);
+        for p in &mut self.particles {
+            p.position += p.velocity * dt;
+            p.velocity -= p.velocity * drag;
+            p.lifetime -= dt;
+            if p.lifetime <= 0.0 {
+                p.active = false;
+            }
+        }
+        self.particles.retain(|p| p.active && p.lifetime > 0.0);
+    }
+
+    /// Fire a one-shot event whenever the signal climbs into a higher threat tier, so the
+    /// HUD/audio can punctuate the moment the player just made the ship louder.
+    fn emit_threat_escalation(&mut self, events: &mut EventBus) {
+        let tier = self.signal_tier();
+        if tier > self.last_signal_tier {
+            events.push_game(GameEvent::ThreatEscalated { tier });
+        }
+        self.last_signal_tier = tier;
     }
 
     pub(crate) fn update_power(&mut self) {
@@ -179,6 +205,15 @@ impl GameState {
                 }
             }
         }
+        // Record the first moment escape became available — death forensics use this to
+        // prove that leaving was a choice the player declined.
+        if engine_repair_pct >= ENGINE_MIN_REPAIR_PERCENT
+            && self.engine_powered()
+            && self.engine_ready_at.is_none()
+        {
+            self.engine_ready_at = Some(self.time_survived);
+        }
+
         // Engine Charging Logic with Hysteresis (Safety Shutdown)
         if engine_repair_pct >= ENGINE_MIN_REPAIR_PERCENT && self.engine_powered() {
             match self.engine_state {
@@ -215,7 +250,7 @@ impl GameState {
                 }
             }
             EngineState::Charging => {
-                let gain = 1.0 * (self.nanite_alert / NANITE_ALERT_BASE);
+                let gain = STRESS_CHARGE_GAIN_BASE * (self.nanite_alert / NANITE_ALERT_BASE);
                 self.engine_stress += gain * dt;
 
                 // Original Charging Logic within Charging State
