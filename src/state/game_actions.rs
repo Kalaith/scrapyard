@@ -450,7 +450,11 @@ impl GameState {
             - penalties;
         let bonus_mult =
             1.0 + (self.upgrades.get_level("credit_bonus") as f32 * CREDIT_BONUS_PER_LEVEL);
-        let total = ((subtotal.max(0) as f32) * bonus_mult) as i32;
+        let contract_mult = self
+            .active_contract
+            .as_ref()
+            .map_or(1.0, |c| c.payout_multiplier);
+        let total = ((subtotal.max(0) as f32) * bonus_mult * contract_mult) as i32;
 
         PayoutBreakdown {
             base,

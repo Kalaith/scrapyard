@@ -219,6 +219,7 @@ fn update_projectiles(state: &mut GameState, dt: f32, events: &mut EventBus) {
                                     EnemyType::Nanoguard => 10,
                                     EnemyType::Leech => 5,
                                     EnemyType::SiegeConstruct => 25,
+                                    EnemyType::Burrower => 8,
                                     EnemyType::Boss => 100,
                                 };
                                 let scrap = (scrap as f32 * kill_scrap_multiplier) as i32;

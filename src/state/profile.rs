@@ -23,6 +23,12 @@ pub struct PlayerProfile {
     pub runs_completed: u32,
     /// Best escape time in seconds
     pub best_time: Option<f32>,
+    /// Highest single-escape payout banked
+    #[serde(default)]
+    pub best_payout: Option<i32>,
+    /// Running total of escape value forfeited by dying instead of launching
+    #[serde(default)]
+    pub credits_left_behind: i32,
 }
 
 impl PlayerProfile {
@@ -51,6 +57,14 @@ impl PlayerProfile {
         if self.best_time.is_none() || escape_time < self.best_time.unwrap() {
             self.best_time = Some(escape_time);
         }
+        if credits_earned > self.best_payout.unwrap_or(i32::MIN) {
+            self.best_payout = Some(credits_earned);
+        }
+    }
+
+    /// Record a death: track the escape value the player forfeited (regret counter).
+    pub fn record_death(&mut self, value_left_behind: i32) {
+        self.credits_left_behind += value_left_behind.max(0);
     }
 
     /// Spend banked credits (returns true if affordable)

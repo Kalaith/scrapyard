@@ -3,6 +3,7 @@ use macroquad_toolkit::rng;
 use serde::{Deserialize, Serialize};
 
 use super::tutorial::{TutorialConfig, TutorialState};
+use crate::data::contracts::ContractModifier;
 use crate::data::settings::Settings;
 use crate::economy::resources::Resources;
 use crate::economy::upgrades::{GameUpgrades, UpgradeTemplate};
@@ -105,6 +106,10 @@ pub struct GameState {
     pub charge_surges_fired: u8,
     /// Highest hull-breach threshold band already triggered this run (interior hazards).
     pub hull_breach_stage: usize,
+    /// All contract modifiers loaded from JSON.
+    pub contracts: Vec<ContractModifier>,
+    /// The contract modifier drawn for the current run.
+    pub active_contract: Option<ContractModifier>,
 }
 
 impl GameState {
@@ -173,6 +178,8 @@ impl GameState {
             engine_ready_at: None,
             charge_surges_fired: 0,
             hull_breach_stage: 0,
+            contracts: ContractModifier::load_all(),
+            active_contract: None,
         };
 
         state.sync_upgrades_from_profile();
@@ -182,7 +189,11 @@ impl GameState {
 
     pub fn start_new_game(&mut self) {
         self.ship = Ship::new(GRID_WIDTH, GRID_HEIGHT);
-        self.interior = ShipInterior::starter_ship();
+        // Rotate through the layout variants unlocked in the meta shop for run-to-run variety.
+        let registry = self.profile.upgrade_level("ship_registry") as usize;
+        let variant_count = (1 + registry).min(ShipInterior::VARIANT_COUNT);
+        let variant = (self.profile.runs_completed as usize) % variant_count.max(1);
+        self.interior = ShipInterior::for_variant(variant);
         self.resources = Resources::new();
         self.resources.scrap = 50;
         self.resources.credits = self.profile.banked_credits;
@@ -225,7 +236,18 @@ impl GameState {
         self.recent_events
             .push("New salvage run started".to_string());
 
+        // Draw this run's contract modifier before meta/scrap so its effects apply.
+        self.active_contract = ContractModifier::pick(&self.contracts);
+        if let Some(contract) = &self.active_contract {
+            self.recent_events
+                .push(format!("Contract: {}", contract.name));
+        }
+
         self.apply_meta_progression_to_run();
+
+        let start_scrap = self.active_contract.as_ref().map_or(0, |c| c.start_scrap);
+        self.resources.scrap = (self.resources.scrap + start_scrap).min(self.resources.max_scrap);
+
         self.spawn_scrap_piles();
     }
 
@@ -247,7 +269,13 @@ impl GameState {
     }
 
     pub fn spawn_scrap_piles(&mut self) {
-        let count = rng::gen_range(MIN_SCRAP_PILES, MAX_SCRAP_PILES + 1);
+        let scrap_mult = self
+            .active_contract
+            .as_ref()
+            .map_or(1.0, |c| c.scrap_multiplier);
+        let count = ((rng::gen_range(MIN_SCRAP_PILES, MAX_SCRAP_PILES + 1) as f32 * scrap_mult)
+            .round() as usize)
+            .max(1);
         for _ in 0..count {
             if let Some(room) = rng::choose(&self.interior.rooms) {
                 if room.room_type == RoomType::Empty {
@@ -257,7 +285,8 @@ impl GameState {
                 let h = room.height - SCRAP_SPAWN_PADDING * 2.0;
                 let x = room.x + SCRAP_SPAWN_PADDING + rng::gen_range(0.0, w);
                 let y = room.y + SCRAP_SPAWN_PADDING + rng::gen_range(0.0, h);
-                let amount = rng::gen_range(SCRAP_PILE_MIN_AMOUNT, SCRAP_PILE_MAX_AMOUNT + 1);
+                let base = rng::gen_range(SCRAP_PILE_MIN_AMOUNT, SCRAP_PILE_MAX_AMOUNT + 1);
+                let amount = ((base as f32 * scrap_mult).round() as i32).max(1);
                 self.scrap_piles.push(ScrapPile::new(vec2(x, y), amount));
             }
         }

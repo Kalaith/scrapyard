@@ -24,6 +24,7 @@ const ROUTE_ROW_H: f32 = 28.0;
 impl Renderer {
     pub fn draw_ship_ui(&self, state: &GameState) {
         self.draw_top_status_bar(state);
+        self.draw_contract_banner(state);
         self.draw_powered_system_strip(state);
         self.draw_power_routing_panel(state);
 
@@ -37,6 +38,28 @@ impl Renderer {
 
         self.draw_bottom_prompt(state);
         self.draw_available_actions(state);
+    }
+
+    /// Top-center label showing this run's contract modifier.
+    fn draw_contract_banner(&self, state: &GameState) {
+        let Some(contract) = &state.active_contract else {
+            return;
+        };
+        if contract.id == "clear_skies" {
+            return; // Neutral contract: nothing worth a banner.
+        }
+        let label = format!("CONTRACT — {}", contract.name);
+        let size = measure_ui_text(&label, None, 15, 1.0);
+        let x = (screen_width() - size.width) / 2.0;
+        let y = HUD_HEIGHT + 16.0;
+        draw_rectangle(
+            x - 12.0,
+            y - 14.0,
+            size.width + 24.0,
+            22.0,
+            color_u8!(0, 0, 0, 170),
+        );
+        draw_ui_text(&label, x, y, 15.0, theme::cyan());
     }
 
     fn draw_top_status_bar(&self, state: &GameState) {
@@ -644,7 +667,7 @@ fn engine_status(state: &GameState) -> (&'static str, Color) {
 fn enemy_color(enemy_type: &EnemyType) -> Color {
     match enemy_type {
         EnemyType::Boss => theme::danger(),
-        EnemyType::Nanoguard | EnemyType::SiegeConstruct => theme::warning(),
+        EnemyType::Nanoguard | EnemyType::SiegeConstruct | EnemyType::Burrower => theme::warning(),
         EnemyType::Leech => theme::cyan(),
         EnemyType::Nanodrone => theme::danger(),
     }

@@ -74,6 +74,20 @@ pub fn update_wave_logic(state: &mut GameState, dt: f32, events: &mut EventBus) 
         spawn_siege(&mut state.enemies, state.frame_count);
         state.wave_state.reset_siege_timer();
     }
+
+    // Burrowers appear once the ship is loud enough to be worth gutting.
+    if signature >= WAVE_T2_POWER
+        && state.wave_state.burrower_timer >= SPAWN_INTERVAL_BURROWER / diff_mult
+    {
+        spawn_burrower(&mut state.enemies, state.frame_count);
+        state.wave_state.reset_burrower_timer();
+    }
+}
+
+fn spawn_burrower(enemies: &mut Vec<Enemy>, frame_count: u64) {
+    let pos = random_spawn_position();
+    let id = generate_enemy_id(enemies.len(), frame_count);
+    enemies.push(Enemy::new(id, EnemyType::Burrower, pos));
 }
 
 fn spawn_drone(enemies: &mut Vec<Enemy>, frame_count: u64) {
@@ -204,6 +218,19 @@ pub fn update_enemies(state: &mut GameState, dt: f32) {
                 let dir = (core_pos - enemy.position).normalize_or_zero();
                 enemy.position += dir * enemy.speed * dt;
                 enemy.target_module = state.ship.find_core();
+            }
+            EnemyType::Burrower => {
+                // Burrower: sprints at the nearest live system to chew its repair points.
+                if let Some(target) = find_priority_target(&state.ship) {
+                    let target_pos = grid_to_screen(target.0, target.1);
+                    let dir = (target_pos - enemy.position).normalize_or_zero();
+                    enemy.position += dir * enemy.speed * dt;
+                    enemy.target_module = Some(target);
+                } else {
+                    let dir = (core_pos - enemy.position).normalize_or_zero();
+                    enemy.position += dir * enemy.speed * dt;
+                    enemy.target_module = state.ship.find_core();
+                }
             }
             EnemyType::Boss => {
                 // Boss: Slow approach, cycles through special abilities

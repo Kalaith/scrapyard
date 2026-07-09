@@ -217,7 +217,11 @@ impl ShipInterior {
     /// Load ship layout from JSON string (embedded at compile time)
     pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
         let data: ShipData = serde_json::from_str(json_str)?;
+        Ok(Self::from_ship_data(data))
+    }
 
+    /// Build the interior from parsed ship data.
+    fn from_ship_data(data: ShipData) -> Self {
         let rooms: Vec<Room> = data
             .rooms
             .iter()
@@ -239,28 +243,45 @@ impl ShipInterior {
             })
             .collect();
 
-        Ok(Self {
+        Self {
             rooms,
             width: data.width,
             height: data.height,
-        })
+        }
     }
 
-    /// Create the starter ship layout from JSON
+    /// Create the starter ship layout (variant 0).
     pub fn starter_ship() -> Self {
-        const SHIP_JSON: &str = include_str!("../../assets/ships/starter_ship.json");
-        Self::from_json(SHIP_JSON).unwrap_or_else(|e| {
-            eprintln!(
-                "Warning: Failed to load starter ship: {}. Using fallback.",
-                e
-            );
-            Self {
-                rooms: Vec::new(),
-                width: 1000.0,
-                height: 600.0,
-            }
-        })
+        Self::for_variant(0)
     }
+
+    /// Build a layout variant. Variants are geometric transforms of the base ship — they
+    /// keep the same module wiring but reshape the interior, so travel time (the real
+    /// interior gameplay) differs run to run. Unlocked via the meta shop.
+    pub fn for_variant(variant: usize) -> Self {
+        const SHIP_JSON: &str = include_str!("../../assets/ships/starter_ship.json");
+        match serde_json::from_str::<ShipData>(SHIP_JSON) {
+            Ok(mut data) => {
+                match variant % 3 {
+                    1 => mirror_horizontal(&mut data),
+                    2 => mirror_vertical(&mut data),
+                    _ => {}
+                }
+                Self::from_ship_data(data)
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to load starter ship: {e}. Using fallback.");
+                Self {
+                    rooms: Vec::new(),
+                    width: 1000.0,
+                    height: 600.0,
+                }
+            }
+        }
+    }
+
+    /// Number of distinct layout variants available.
+    pub const VARIANT_COUNT: usize = 3;
 
     pub fn player_start_position(&self) -> Vec2 {
         // Room 12 is the core (player start)
@@ -291,5 +312,66 @@ impl ShipInterior {
     pub fn module_room_at(&self, pos: Vec2) -> Option<&Room> {
         self.room_at(pos)
             .filter(|r| matches!(r.room_type, RoomType::Module(_)))
+    }
+}
+
+/// Mirror every room left-right within the ship bounds (repair points move with their room).
+fn mirror_horizontal(data: &mut ShipData) {
+    let width = data.width;
+    for room in &mut data.rooms {
+        room.x = width - room.x - room.w;
+        for rp in &mut room.repair_points {
+            rp.x = room.w - rp.x;
+        }
+    }
+}
+
+/// Mirror every room top-bottom within the ship bounds.
+fn mirror_vertical(data: &mut ShipData) {
+    let height = data.height;
+    for room in &mut data.rooms {
+        room.y = height - room.y - room.h;
+        for rp in &mut room.repair_points {
+            rp.y = room.h - rp.y;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_variants_load_valid_geometry() {
+        let base = ShipInterior::for_variant(0);
+        assert!(!base.rooms.is_empty(), "base layout should have rooms");
+
+        for variant in 0..ShipInterior::VARIANT_COUNT {
+            let ship = ShipInterior::for_variant(variant);
+            // Mirroring must preserve the room set and module wiring.
+            assert_eq!(ship.rooms.len(), base.rooms.len());
+            for room in &ship.rooms {
+                assert!(room.x >= -0.5 && room.x + room.width <= ship.width + 0.5);
+                assert!(room.y >= -0.5 && room.y + room.height <= ship.height + 0.5);
+                // Repair points stay inside their room after mirroring.
+                for rp in &room.repair_points {
+                    assert!(rp.x >= 0.0 && rp.x <= room.width);
+                    assert!(rp.y >= 0.0 && rp.y <= room.height);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn variants_actually_differ() {
+        let base = ShipInterior::for_variant(0);
+        let mirrored = ShipInterior::for_variant(1);
+        // At least one room should have moved under the horizontal mirror.
+        let moved = base
+            .rooms
+            .iter()
+            .zip(mirrored.rooms.iter())
+            .any(|(a, b)| (a.x - b.x).abs() > 0.5);
+        assert!(moved, "horizontal mirror should reposition rooms");
     }
 }

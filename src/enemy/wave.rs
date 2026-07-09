@@ -6,6 +6,7 @@ pub struct WaveState {
     pub guard_timer: f32,
     pub leech_timer: f32,
     pub siege_timer: f32,
+    pub burrower_timer: f32,
 }
 
 impl WaveState {
@@ -15,6 +16,7 @@ impl WaveState {
             guard_timer: 0.0,
             leech_timer: 0.0,
             siege_timer: 0.0,
+            burrower_timer: 0.0,
         }
     }
 
@@ -23,6 +25,7 @@ impl WaveState {
         self.guard_timer += dt;
         self.leech_timer += dt;
         self.siege_timer += dt;
+        self.burrower_timer += dt;
     }
 
     pub fn reset_spawn_timer(&mut self) {
@@ -39,5 +42,9 @@ impl WaveState {
 
     pub fn reset_siege_timer(&mut self) {
         self.siege_timer = 0.0;
+    }
+
+    pub fn reset_burrower_timer(&mut self) {
+        self.burrower_timer = 0.0;
     }
 }

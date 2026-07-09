@@ -13,6 +13,37 @@ impl Renderer {
         }
 
         self.draw_menu_buttons();
+        self.draw_menu_records(state);
+    }
+
+    /// Best-run records shown top-left on the menu — score-attack framing.
+    fn draw_menu_records(&self, state: &GameState) {
+        let p = &state.profile;
+        if p.runs_completed == 0 && p.credits_left_behind == 0 {
+            return; // Nothing earned yet; keep the first-run menu clean.
+        }
+        let best_time = p
+            .best_time
+            .map(|t| format!("{:02}:{:02}", (t / 60.0) as i32, (t % 60.0) as i32))
+            .unwrap_or_else(|| "--:--".to_string());
+        let lines = [
+            "SALVAGE RECORD".to_string(),
+            format!("Escapes: {}", p.runs_completed),
+            format!("Best payout: {} CR", p.best_payout.unwrap_or(0)),
+            format!("Best time: {}", best_time),
+            format!("Left behind: {} CR", p.credits_left_behind),
+        ];
+        let x = 24.0;
+        let mut y = 90.0;
+        for (i, line) in lines.iter().enumerate() {
+            let (size, color) = if i == 0 {
+                (18.0, theme::cyan())
+            } else {
+                (16.0, theme::text_muted())
+            };
+            draw_ui_text(line, x, y, size, color);
+            y += size + 8.0;
+        }
     }
 
     fn draw_menu_background(&self, state: &GameState) -> bool {

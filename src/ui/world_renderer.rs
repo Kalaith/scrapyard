@@ -513,6 +513,7 @@ impl Renderer {
                 crate::enemy::entities::EnemyType::Nanoguard => "enemy_nanoguard",
                 crate::enemy::entities::EnemyType::Leech => "enemy_leech",
                 crate::enemy::entities::EnemyType::SiegeConstruct => "enemy_siege_construct",
+                crate::enemy::entities::EnemyType::Burrower => "enemy_burrower",
                 crate::enemy::entities::EnemyType::Boss => "enemy_boss",
             };
 
@@ -553,6 +554,7 @@ impl Renderer {
                     crate::enemy::entities::EnemyType::Nanoguard => YELLOW,
                     crate::enemy::entities::EnemyType::Leech => PURPLE,
                     crate::enemy::entities::EnemyType::SiegeConstruct => DARKGRAY,
+                    crate::enemy::entities::EnemyType::Burrower => ORANGE,
                     crate::enemy::entities::EnemyType::Boss => RED,
                 };
                 draw_circle(ex, ey, 8.0, color);

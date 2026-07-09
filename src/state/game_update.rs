@@ -184,6 +184,12 @@ impl GameState {
         // the signature so quiet full-repair runs still eventually draw a crowd.
         let alert_excess = (self.nanite_alert - NANITE_ALERT_BASE).max(0.0);
         signature += (alert_excess / NANITE_ALERT_SIGNATURE_DIVISOR) as i32;
+
+        // This run's contract can raise the baseline threat.
+        signature += self
+            .active_contract
+            .as_ref()
+            .map_or(0, |c| c.signature_delta);
         signature
     }
 
@@ -221,6 +227,13 @@ impl GameState {
     fn check_game_over(&mut self, events: &mut EventBus) {
         if self.ship_integrity <= 0.0 {
             self.ship_integrity = 0.0;
+            // The forfeited escape value (full payout, not the ×0.2 recovery) is what the
+            // player left behind — bank it to the regret counter, not to their credits.
+            let forfeited = self.calculate_payout().total;
+            self.profile.record_death(forfeited);
+            if let Err(error) = self.profile.save() {
+                eprintln!("Failed to save profile after death: {error}");
+            }
             self.last_payout = Some(self.calculate_failure_payout());
             self.phase = GamePhase::GameOver;
             events.push_game(GameEvent::CoreDestroyed);

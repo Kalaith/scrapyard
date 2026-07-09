@@ -40,6 +40,13 @@ pub const ENEMY_SIEGE_HP: f32 = 200.0;
 pub const ENEMY_SIEGE_SPEED: f32 = 15.0;
 pub const ENEMY_SIEGE_DAMAGE: f32 = 30.0;
 
+// Burrower: fragile but hits a module hard enough to knock out repair points fast — it
+// exploits the per-module damage system, forcing reactive interior repair. Kill it quickly.
+pub const ENEMY_BURROWER_HP: f32 = 35.0;
+pub const ENEMY_BURROWER_SPEED: f32 = 75.0;
+pub const ENEMY_BURROWER_DAMAGE: f32 = 90.0;
+pub const SPAWN_INTERVAL_BURROWER: f32 = 26.0;
+
 pub const ENEMY_BOSS_HP: f32 = 1000.0;
 pub const ENEMY_BOSS_SPEED: f32 = 20.0;
 pub const ENEMY_BOSS_DAMAGE: f32 = 50.0;

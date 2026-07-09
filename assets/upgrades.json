@@ -70,5 +70,14 @@
         "cost_multiplier": 2.5,
         "max_level": 3,
         "category": "Contracts"
+    },
+    {
+        "id": "ship_registry",
+        "name": "Salvage Registry",
+        "description": "Unlocks a reclaimed hull layout per level, rotated across runs so the interior differs.",
+        "base_cost": 300,
+        "cost_multiplier": 2.0,
+        "max_level": 2,
+        "category": "Contracts"
     }
 ]

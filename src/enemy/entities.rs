@@ -8,6 +8,7 @@ pub enum EnemyType {
     Nanoguard,
     Leech,
     SiegeConstruct, // Slow, high HP, attacks hull directly
+    Burrower,       // Fragile, sprints at a system and chews its repair points
     Boss,
 }
 
@@ -33,6 +34,11 @@ impl Enemy {
             EnemyType::Nanoguard => (ENEMY_GUARD_HP, ENEMY_GUARD_SPEED, ENEMY_GUARD_DAMAGE),
             EnemyType::Leech => (ENEMY_LEECH_HP, ENEMY_LEECH_SPEED, ENEMY_LEECH_DAMAGE),
             EnemyType::SiegeConstruct => (ENEMY_SIEGE_HP, ENEMY_SIEGE_SPEED, ENEMY_SIEGE_DAMAGE),
+            EnemyType::Burrower => (
+                ENEMY_BURROWER_HP,
+                ENEMY_BURROWER_SPEED,
+                ENEMY_BURROWER_DAMAGE,
+            ),
             EnemyType::Boss => (ENEMY_BOSS_HP, ENEMY_BOSS_SPEED, ENEMY_BOSS_DAMAGE),
         };
 
