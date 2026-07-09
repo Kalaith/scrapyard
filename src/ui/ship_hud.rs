@@ -25,6 +25,7 @@ impl Renderer {
     pub fn draw_ship_ui(&self, state: &GameState) {
         self.draw_top_status_bar(state);
         self.draw_contract_banner(state);
+        self.draw_startup_grace_indicator(state);
         self.draw_powered_system_strip(state);
         self.draw_power_routing_panel(state);
 
@@ -60,6 +61,29 @@ impl Renderer {
             color_u8!(0, 0, 0, 170),
         );
         draw_ui_text(&label, x, y, 15.0, theme::cyan());
+    }
+
+    /// Transient centre banner during the opening calm, so the player understands why it's
+    /// quiet — and that their own scavenging/repairs are burning the window down.
+    fn draw_startup_grace_indicator(&self, state: &GameState) {
+        if state.startup_grace <= 0.0 {
+            return;
+        }
+        let label = format!(
+            "CALM — {:.0}s  (scavenging & repairs draw them in)",
+            state.startup_grace.ceil()
+        );
+        let size = measure_ui_text(&label, None, 15, 1.0);
+        let x = (screen_width() - size.width) / 2.0;
+        let y = HUD_HEIGHT + 40.0;
+        draw_rectangle(
+            x - 12.0,
+            y - 14.0,
+            size.width + 24.0,
+            22.0,
+            color_u8!(0, 0, 0, 170),
+        );
+        draw_ui_text(&label, x, y, 15.0, theme::success());
     }
 
     fn draw_top_status_bar(&self, state: &GameState) {

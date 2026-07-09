@@ -57,6 +57,13 @@ pub const BOSS_FRAGMENT_HP: f32 = 40.0; // HP of each fragment drone
 // Per-module damage: modules soak hits before losing a repair point.
 pub const MODULE_POINT_HEALTH: f32 = 60.0; // Damage to knock out one repair point
 
+// Startup grace: a run opens with a calm window before nanites can spawn, so a slow start
+// isn't punished. Every scrap gathered and every point rebuilt spends it down — activity
+// draws them in, reinforcing "you are the difficulty dial".
+pub const STARTUP_GRACE_SECONDS: f32 = 35.0;
+pub const STARTUP_GRACE_REDUCE_PER_SCRAP: f32 = 2.0;
+pub const STARTUP_GRACE_REDUCE_PER_REPAIR: f32 = 2.5;
+
 // Wave Logic. These thresholds use routed system signature, not raw reactor capacity.
 pub const WAVE_GRACE_POWER: i32 = 2;
 pub const WAVE_T1_POWER: i32 = 5;

@@ -80,4 +80,6 @@ pub struct SaveData {
     pub engine_ready_at: Option<f32>,
     #[serde(default)]
     pub hull_breach_stage: usize,
+    #[serde(default)]
+    pub startup_grace: f32,
 }

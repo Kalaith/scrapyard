@@ -7,6 +7,13 @@ use macroquad::prelude::*;
 use macroquad_toolkit::rng;
 
 pub fn update_wave_logic(state: &mut GameState, dt: f32, events: &mut EventBus) {
+    // Startup calm: no spawns until the grace window is spent. Returning before the spawn
+    // timers accumulate means the swarm doesn't burst in the instant grace ends.
+    if state.startup_grace > 0.0 {
+        state.startup_grace = (state.startup_grace - dt).max(0.0);
+        return;
+    }
+
     let signature = state.threat_signature;
 
     if state.engine_state == EngineState::Charging {

@@ -523,6 +523,8 @@ impl GameState {
         }
         self.resources.deduct(scrap_cost);
         self.interior.rooms[room_idx].repair_points[point_idx].repaired = true;
+        // Rebuilding a system also spends the startup calm — progress attracts attention.
+        self.startup_grace = (self.startup_grace - STARTUP_GRACE_REDUCE_PER_REPAIR).max(0.0);
 
         if matches!(
             self.interior.rooms[room_idx].room_type,

@@ -291,6 +291,8 @@ impl InputManager {
 
         state.resources.add_scrap(amount);
         state.scrap_piles[target_idx].active = false;
+        // Scavenging spends the startup calm — the more you take, the sooner they come.
+        state.startup_grace = (state.startup_grace - STARTUP_GRACE_REDUCE_PER_SCRAP).max(0.0);
         events.push_ui(UIEvent::Toggle(0, 0));
         state.gathering_target = None;
         state.gathering_timer = 0.0;

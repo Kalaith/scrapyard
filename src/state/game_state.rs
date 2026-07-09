@@ -110,6 +110,9 @@ pub struct GameState {
     pub contracts: Vec<ContractModifier>,
     /// The contract modifier drawn for the current run.
     pub active_contract: Option<ContractModifier>,
+    /// Seconds of startup calm before nanites can spawn. Ticks down with time and is spent
+    /// faster by scavenging scrap / rebuilding points — so activity draws the swarm in.
+    pub startup_grace: f32,
 }
 
 impl GameState {
@@ -180,6 +183,7 @@ impl GameState {
             hull_breach_stage: 0,
             contracts: ContractModifier::load_all(),
             active_contract: None,
+            startup_grace: STARTUP_GRACE_SECONDS,
         };
 
         state.sync_upgrades_from_profile();
@@ -231,6 +235,7 @@ impl GameState {
         self.engine_ready_at = None;
         self.charge_surges_fired = 0;
         self.hull_breach_stage = 0;
+        self.startup_grace = STARTUP_GRACE_SECONDS;
         self.pause_menu_selection = 0;
         self.recent_events.clear();
         self.recent_events
