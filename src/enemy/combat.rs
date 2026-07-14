@@ -6,6 +6,7 @@ use crate::simulation::constants::*;
 use crate::simulation::events::{EventBus, GameEvent};
 use crate::state::GameState;
 use macroquad::prelude::*;
+use macroquad_toolkit::timing::Cooldown;
 
 pub fn update_combat(state: &mut GameState, dt: f32, events: &mut EventBus) {
     // 1. Modules Fire (Towers)
@@ -68,7 +69,7 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
         // Note: Using disjoint borrow of state should work (interior is borrowed, ship is separate)
         if let Some(Some(module)) = state.ship.grid.get_mut(gx).and_then(|row| row.get_mut(gy)) {
             // Decrease cooldown
-            module.cooldown -= dt;
+            module.cooldown.tick(dt);
 
             // In-run upgrades boost turret output (damage + fire rate) per level.
             let level_mult =
@@ -77,14 +78,14 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
             let effective_fire_rate = effective_fire_rate * level_mult;
 
             // Debug prints every 60 frames (approx 1 sec) to reduce spam?
-            // Or just print if cooldown <= 0?
-            if module.cooldown <= 0.0 && state.frame_count.is_multiple_of(60) {
+            // Or just print if ready?
+            if module.cooldown.is_ready() && state.frame_count.is_multiple_of(60) {
                 // println!("Weapon Ready: Repaired {}/{} (Pct {:.2}), Rate {:.2}, EffRate {:.2}, Rng {:.0}",
                 //    room.repaired_count(), room.repair_points.len(), repair_pct, base_fire_rate, effective_fire_rate, effective_range);
             }
 
             // Ready to fire?
-            if module.cooldown <= 0.0 {
+            if module.cooldown.is_ready() {
                 let tower_pos = Layout::grid_to_screen_center(gx, gy);
 
                 if let Some(target) = find_nearest_enemy(&state.enemies, tower_pos, effective_range)
@@ -100,12 +101,12 @@ fn fire_towers(state: &mut GameState, dt: f32, events: &mut EventBus) {
                         y: tower_pos.y,
                     });
 
-                    // Reset cooldown
-                    if effective_fire_rate > 0.001 {
-                        module.cooldown = 1.0 / effective_fire_rate;
+                    // Reset cooldown (fresh duration since fire rate scales with repair/upgrades)
+                    module.cooldown = if effective_fire_rate > 0.001 {
+                        Cooldown::new_armed(1.0 / effective_fire_rate)
                     } else {
-                        module.cooldown = 10.0;
-                    }
+                        Cooldown::new_armed(10.0)
+                    };
                 }
             }
         }
@@ -345,9 +346,8 @@ fn update_boss_abilities(state: &mut GameState, dt: f32, events: &mut EventBus) 
         if enemy.enemy_type != EnemyType::Boss || enemy.health <= 0.0 {
             continue;
         }
-        enemy.ability_timer += dt;
-        if enemy.ability_timer >= BOSS_ABILITY_COOLDOWN {
-            enemy.ability_timer = 0.0;
+        enemy.ability_cooldown.tick(dt);
+        if enemy.ability_cooldown.try_trigger() {
             emp = true;
         }
     }
@@ -378,9 +378,8 @@ fn update_leech_drains(state: &mut GameState, dt: f32, events: &mut EventBus) {
         let Some(target) = enemy.attached_to else {
             continue;
         };
-        enemy.ability_timer += dt;
-        if enemy.ability_timer >= 2.0 {
-            enemy.ability_timer = 0.0;
+        enemy.ability_cooldown.tick(dt);
+        if enemy.ability_cooldown.try_trigger() {
             drained_targets.push(target);
         }
     }

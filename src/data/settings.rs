@@ -1,59 +1,25 @@
-// settings.rs - Game settings with save/load to config.json
+// settings.rs - Game settings, backed by the shared macroquad-toolkit `GameSettings`
+// shape, persisted to config.json (native) / keyed browser storage (wasm).
 
-use serde::{Deserialize, Serialize};
+use macroquad_toolkit::settings::GameSettings;
 use std::io;
 
 const CONFIG_PATH: &str = "config.json";
 #[cfg(target_arch = "wasm32")]
 const GAME_NAME: &str = "scrapyard";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Settings {
-    pub master_volume: f32, // 0.0 - 1.0
-    pub sfx_volume: f32,    // 0.0 - 1.0
-    pub music_volume: f32,  // 0.0 - 1.0
-    pub fullscreen: bool,
-    pub show_fps: bool,
-    pub screen_shake: bool,
+/// Scrapyard has no genuinely game-specific settings beyond the shared shape, so this is
+/// a plain alias rather than a wrapper struct.
+pub type Settings = GameSettings;
+
+/// Load settings from config.json, or return defaults if the file doesn't exist.
+pub fn load() -> Settings {
+    load_settings().unwrap_or_default()
 }
 
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            master_volume: 1.0,
-            sfx_volume: 0.8,
-            music_volume: 0.6,
-            fullscreen: false,
-            show_fps: false,
-            screen_shake: true,
-        }
-    }
-}
-
-impl Settings {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Load settings from config.json, or return defaults if file doesn't exist
-    pub fn load() -> Self {
-        load_settings().unwrap_or_default()
-    }
-
-    /// Save settings to config.json
-    pub fn save(&self) -> std::io::Result<()> {
-        save_settings(self).map_err(io::Error::other)
-    }
-
-    /// Get effective SFX volume (master * sfx)
-    pub fn effective_sfx_volume(&self) -> f32 {
-        self.master_volume * self.sfx_volume
-    }
-
-    /// Get effective music volume (master * music)
-    pub fn effective_music_volume(&self) -> f32 {
-        self.master_volume * self.music_volume
-    }
+/// Save settings to config.json.
+pub fn save(settings: &Settings) -> std::io::Result<()> {
+    save_settings(settings).map_err(io::Error::other)
 }
 
 #[cfg(not(target_arch = "wasm32"))]

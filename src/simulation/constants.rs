@@ -35,6 +35,7 @@ pub const ENEMY_LEECH_HP: f32 = 30.0;
 pub const ENEMY_LEECH_SPEED: f32 = 60.0;
 pub const ENEMY_LEECH_DAMAGE: f32 = 2.0;
 pub const ENEMY_LEECH_POWER_DRAIN: i32 = 1; // Power drained per tick when attached
+pub const LEECH_DRAIN_INTERVAL: f32 = 2.0; // Seconds between leech power-drain ticks
 
 pub const ENEMY_SIEGE_HP: f32 = 200.0;
 pub const ENEMY_SIEGE_SPEED: f32 = 15.0;

@@ -2,7 +2,7 @@ use crate::state::GameState;
 use crate::ui::renderer::Renderer;
 use crate::ui::theme;
 use macroquad::prelude::*;
-use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
+use macroquad_toolkit::ui::{draw_ui_text, format_mmss, measure_ui_text};
 
 impl Renderer {
     pub fn draw_menu(&self, state: &GameState) {
@@ -24,7 +24,7 @@ impl Renderer {
         }
         let best_time = p
             .best_time
-            .map(|t| format!("{:02}:{:02}", (t / 60.0) as i32, (t % 60.0) as i32))
+            .map(format_mmss)
             .unwrap_or_else(|| "--:--".to_string());
         let lines = [
             "SALVAGE RECORD".to_string(),
@@ -165,18 +165,17 @@ impl Renderer {
         );
 
         let stats_y = screen_height() / 2.0 - 40.0;
-        let minutes = (state.time_survived / 60.0).floor() as i32;
-        let seconds = (state.time_survived % 60.0).floor() as i32;
 
         // Death forensics: prove the death was a chosen death, not an unfair one.
         // The honest "value left behind" is the full escape payout the player forfeited by
         // not launching — nothing is banked on death.
         let foregone = state.calculate_payout().total;
         let (headline, headline_color) = if let Some(ready) = state.engine_ready_at {
-            let rm = (ready / 60.0).floor() as i32;
-            let rs = (ready % 60.0).floor() as i32;
             (
-                format!("ESCAPE WAS AVAILABLE AT {:02}:{:02} — YOU STAYED", rm, rs),
+                format!(
+                    "ESCAPE WAS AVAILABLE AT {} — YOU STAYED",
+                    format_mmss(ready)
+                ),
                 color_u8!(255, 180, 80, 255),
             )
         } else {
@@ -202,7 +201,10 @@ impl Renderer {
         stats.push(format!("Value left behind: {} credits", foregone));
         stats.push(format!("Died holding: {} scrap", state.resources.scrap));
         stats.push(format!("Kills: {}", state.enemies_destroyed));
-        stats.push(format!("Time Survived: {:02}:{:02}", minutes, seconds));
+        stats.push(format!(
+            "Time Survived: {}",
+            format_mmss(state.time_survived)
+        ));
         stats.push("Banked this run: 0 — a death costs everything".to_string());
 
         for (i, stat) in stats.iter().enumerate() {

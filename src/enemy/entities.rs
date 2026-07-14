@@ -1,5 +1,6 @@
 use crate::simulation::constants::*;
 use macroquad::prelude::*;
+use macroquad_toolkit::timing::Cooldown;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -23,7 +24,7 @@ pub struct Enemy {
     pub damage: f32,
     pub target_module: Option<(usize, usize)>, // Grid coords
     pub attached_to: Option<(usize, usize)>,   // For Leech: module it's attached to
-    pub ability_timer: f32,                    // For Boss: cooldown for special abilities
+    pub ability_cooldown: Cooldown,            // For Boss/Leech: cooldown for special abilities
     pub attacking: bool, // Tracks if currently dealing damage (for sound throttling)
 }
 
@@ -42,6 +43,13 @@ impl Enemy {
             EnemyType::Boss => (ENEMY_BOSS_HP, ENEMY_BOSS_SPEED, ENEMY_BOSS_DAMAGE),
         };
 
+        let ability_duration = Self::ability_cooldown_duration(enemy_type.clone());
+        let ability_cooldown = if ability_duration > 0.0 {
+            Cooldown::new_armed(ability_duration)
+        } else {
+            Cooldown::new(0.0)
+        };
+
         Self {
             id,
             enemy_type,
@@ -52,9 +60,37 @@ impl Enemy {
             damage,
             target_module: None,
             attached_to: None,
-            ability_timer: 0.0,
+            ability_cooldown,
             attacking: false,
         }
+    }
+
+    /// Duration of this enemy type's special-ability cooldown (0 when the type has none:
+    /// only Boss EMP pulses and Leech power-drain ticks use `ability_cooldown`).
+    pub fn ability_cooldown_duration(enemy_type: EnemyType) -> f32 {
+        match enemy_type {
+            EnemyType::Boss => BOSS_ABILITY_COOLDOWN,
+            EnemyType::Leech => LEECH_DRAIN_INTERVAL,
+            _ => 0.0,
+        }
+    }
+
+    /// Reconstructs `ability_cooldown` from a saved "seconds elapsed since last trigger"
+    /// value (the format persisted in `SavedEnemy::ability_timer`).
+    pub fn ability_cooldown_from_elapsed(enemy_type: EnemyType, elapsed: f32) -> Cooldown {
+        let duration = Self::ability_cooldown_duration(enemy_type);
+        if duration <= 0.0 {
+            return Cooldown::new(0.0);
+        }
+        let mut cooldown = Cooldown::new_armed(duration);
+        cooldown.tick(elapsed.clamp(0.0, duration));
+        cooldown
+    }
+
+    /// Seconds elapsed since `ability_cooldown` last triggered, for persistence.
+    pub fn ability_elapsed(&self) -> f32 {
+        let duration = Self::ability_cooldown_duration(self.enemy_type.clone());
+        (duration - self.ability_cooldown.remaining()).max(0.0)
     }
 }
 
@@ -78,28 +114,6 @@ impl Projectile {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Particle {
-    pub position: Vec2,
-    pub velocity: Vec2,
-    pub lifetime: f32,
-    pub max_lifetime: f32,
-    pub color: Color,
-    pub active: bool,
-}
-
-impl Particle {
-    pub fn new(position: Vec2, velocity: Vec2, lifetime: f32, color: Color) -> Self {
-        Self {
-            position,
-            velocity,
-            lifetime,
-            max_lifetime: lifetime,
-            color,
-            active: true,
-        }
-    }
-}
 #[derive(Debug, Clone)]
 pub struct ScrapPile {
     pub position: Vec2, // Room-relative or Global? Global is easier for drawing/collision

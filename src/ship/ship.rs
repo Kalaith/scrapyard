@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use macroquad_toolkit::timing::Cooldown;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -25,8 +26,15 @@ pub struct Module {
     pub level: u8,
     pub health: f32,
     pub max_health: f32,
-    #[serde(default)]
-    pub cooldown: f32,
+    /// Fire-rate cooldown for weapon-type modules. Re-armed with a fresh duration each
+    /// time the module fires (effective fire rate scales with repair/upgrade level), so
+    /// this is reset via `Cooldown::new_armed` rather than a fixed configured duration.
+    #[serde(default = "default_cooldown")]
+    pub cooldown: Cooldown,
+}
+
+fn default_cooldown() -> Cooldown {
+    Cooldown::new(0.0)
 }
 
 impl Module {
@@ -37,7 +45,7 @@ impl Module {
             level: 1,
             health: 100.0,
             max_health: 100.0,
-            cooldown: 0.0,
+            cooldown: Cooldown::new(0.0),
         }
     }
 }

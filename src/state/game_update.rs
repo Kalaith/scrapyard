@@ -79,16 +79,7 @@ impl GameState {
 
     /// Advance and cull the visual particle pool (kill bursts, hit sparks, repair flashes).
     fn update_particles(&mut self, dt: f32) {
-        let drag = (3.0 * dt).min(1.0);
-        for p in &mut self.particles {
-            p.position += p.velocity * dt;
-            p.velocity -= p.velocity * drag;
-            p.lifetime -= dt;
-            if p.lifetime <= 0.0 {
-                p.active = false;
-            }
-        }
-        self.particles.retain(|p| p.active && p.lifetime > 0.0);
+        self.particles.update(dt);
     }
 
     /// Fire a one-shot event whenever the signal climbs into a higher threat tier, so the

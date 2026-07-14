@@ -1,44 +1,32 @@
 use crate::simulation::constants::*;
 use crate::state::{GamePhase, GameState};
 use macroquad::prelude::*;
-use macroquad_toolkit::rng;
+use macroquad_toolkit::fx::ScreenShake;
 
 pub struct Renderer {
-    pub trauma: f32,
-    pub shake_intensity: f32,
+    pub shake: ScreenShake,
 }
 
 impl Renderer {
     pub fn new() -> Self {
-        Self {
-            trauma: 0.0,
-            shake_intensity: SHAKE_INTENSITY,
-        }
+        let mut shake = ScreenShake::new(SHAKE_INTENSITY);
+        shake.decay_rate = TRAUMA_DECAY_RATE;
+        Self { shake }
     }
 
     /// Add trauma for screen shake (clamped to 1.0)
     pub fn add_trauma(&mut self, amount: f32) {
-        self.trauma = (self.trauma + amount).clamp(0.0, 1.0);
+        self.shake.add_trauma(amount);
     }
 
     /// Update trauma decay
     pub fn update(&mut self, dt: f32) {
-        if self.trauma > 0.0 {
-            self.trauma = (self.trauma - dt * TRAUMA_DECAY_RATE).max(0.0);
-        }
+        self.shake.update(dt);
     }
 
     /// Get current shake offset
     pub fn get_shake_offset(&self) -> Vec2 {
-        if self.trauma <= 0.0 {
-            return vec2(0.0, 0.0);
-        }
-
-        let shake = self.trauma * self.trauma;
-        let offset_x = rng::gen_range(-1.0, 1.0) * self.shake_intensity * shake;
-        let offset_y = rng::gen_range(-1.0, 1.0) * self.shake_intensity * shake;
-
-        vec2(offset_x, offset_y)
+        self.shake.offset()
     }
 
     pub fn draw(&self, state: &GameState) {

@@ -16,7 +16,7 @@ pub struct SavedEnemy {
     pub damage: f32,
     pub target: Option<(usize, usize)>,
     pub attached_to: Option<(usize, usize)>, // For Leech attachment
-    pub ability_timer: f32,                  // For Boss abilities
+    pub ability_timer: f32, // Seconds elapsed toward the next Boss EMP / Leech drain tick
 }
 
 #[derive(Serialize, Deserialize)]

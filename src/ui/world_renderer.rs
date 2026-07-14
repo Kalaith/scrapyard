@@ -5,6 +5,7 @@ use crate::state::{GameState, ViewMode};
 use crate::ui::renderer::Renderer;
 use crate::ui::theme;
 use macroquad::prelude::*;
+use macroquad_toolkit::colors::multiply_alpha;
 use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
 
 impl Renderer {
@@ -592,22 +593,14 @@ impl Renderer {
     }
 
     pub fn draw_particles(&self, state: &GameState, shake: Vec2) {
-        for particle in &state.particles {
-            if particle.active {
-                let alpha = (particle.lifetime / particle.max_lifetime).clamp(0.0, 1.0);
-                let color = Color::new(
-                    particle.color.r,
-                    particle.color.g,
-                    particle.color.b,
-                    particle.color.a * alpha,
-                );
-                draw_circle(
-                    particle.position.x + shake.x,
-                    particle.position.y + shake.y,
-                    3.0,
-                    color,
-                );
-            }
+        for particle in state.particles.particles() {
+            let color = multiply_alpha(particle.color, particle.life_fraction());
+            draw_circle(
+                particle.position.x + shake.x,
+                particle.position.y + shake.y,
+                particle.size,
+                color,
+            );
         }
     }
 }

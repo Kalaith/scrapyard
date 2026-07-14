@@ -2,7 +2,7 @@
 
 use macroquad::prelude::*;
 use macroquad_toolkit::capture;
-use macroquad_toolkit::ui::draw_ui_text;
+use macroquad_toolkit::debug::DebugOverlay;
 
 mod data;
 mod economy;
@@ -41,6 +41,7 @@ async fn main() {
     let mut renderer = Renderer::new();
     let mut input_manager = ui::input_manager::InputManager::new();
     let mut event_bus = EventBus::new();
+    let mut debug_overlay = DebugOverlay::new();
 
     // Screenshot harness: when SCRAPYARD_CAPTURE_PATH is set, seed a scene,
     // simulate deterministic frames, write a PNG, and exit.
@@ -65,6 +66,8 @@ async fn main() {
 
         // 4. Update renderer (shake decay)
         renderer.update(dt);
+        debug_overlay.record_frame(dt);
+        debug_overlay.visible = game_state.settings.show_fps;
 
         // 5. Process game events for visual and audio feedback
         // Update sound enabled state based on master volume
@@ -122,10 +125,8 @@ async fn main() {
         clear_background(BLACK);
         renderer.draw(&game_state);
 
-        // "Show FPS" setting now actually shows the frame rate.
-        if game_state.settings.show_fps {
-            draw_ui_text(&format!("FPS {}", get_fps()), 10.0, 30.0, 16.0, GREEN);
-        }
+        // "Show FPS" setting toggles the toolkit's FPS/frame-time overlay.
+        debug_overlay.draw(&[]);
     };
 
     if let Some(config) = capture_config {

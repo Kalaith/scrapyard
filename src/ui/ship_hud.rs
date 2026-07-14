@@ -7,7 +7,7 @@ use crate::ui::panels;
 use crate::ui::renderer::Renderer;
 use crate::ui::theme;
 use macroquad::prelude::*;
-use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
+use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text, segmented_bar};
 
 const HUD_HEIGHT: f32 = 42.0;
 const SAFE_MARGIN: f32 = 12.0;
@@ -138,7 +138,7 @@ impl Renderer {
 
         let alert_pct = (state.nanite_alert / 50.0).clamp(0.0, 1.0);
         draw_ui_text("ALERT", x, 25.0, 16.0, alert_color(alert_pct));
-        panels::draw_segmented_bar(
+        segmented_bar(
             Rect::new(x + 66.0, 14.0, 132.0, 10.0),
             alert_pct,
             10,
@@ -346,7 +346,7 @@ fn draw_system_detail_row(state: &GameState, room: &Room, x: f32, y: f32) {
     let status = room_status(state, room);
 
     draw_ui_text(room.name(), x, y, 13.0, theme::text_muted());
-    panels::draw_segmented_bar(
+    segmented_bar(
         Rect::new(x + 88.0, y - 10.0, 82.0, 8.0),
         repaired as f32 / total as f32,
         total,
@@ -379,7 +379,7 @@ fn draw_route_row(state: &GameState, room: &Room, slot: usize, x: f32, y: f32, w
     draw_rectangle_lines(x, y - 18.0, w, 24.0, 1.0, color);
     draw_ui_text(&(slot + 1).to_string(), x + 8.0, y, 14.0, color);
     draw_ui_text(route_label(room), x + 30.0, y, 13.0, theme::text_primary());
-    panels::draw_segmented_bar(
+    segmented_bar(
         Rect::new(x + 116.0, y - 10.0, 58.0, 7.0),
         repaired as f32 / total as f32,
         total,

@@ -1,13 +1,14 @@
 use macroquad::prelude::*;
+use macroquad_toolkit::fx::{BurstConfig, ParticleSystem};
 use macroquad_toolkit::rng;
 use serde::{Deserialize, Serialize};
 
 use super::tutorial::{TutorialConfig, TutorialState};
 use crate::data::contracts::ContractModifier;
-use crate::data::settings::Settings;
+use crate::data::settings::{self, Settings};
 use crate::economy::resources::Resources;
 use crate::economy::upgrades::{GameUpgrades, UpgradeTemplate};
-use crate::enemy::entities::{Enemy, Particle, Projectile, ScrapPile};
+use crate::enemy::entities::{Enemy, Projectile, ScrapPile};
 use crate::enemy::wave::WaveState;
 use crate::ship::interior::{RoomType, ShipInterior};
 use crate::ship::player::Player;
@@ -82,7 +83,7 @@ pub struct GameState {
     pub profile: PlayerProfile,
     pub enemies: Vec<Enemy>,
     pub projectiles: Vec<Projectile>,
-    pub particles: Vec<Particle>,
+    pub particles: ParticleSystem,
     pub frame_count: u64,
     pub time_survived: f32,
     pub wave_state: WaveState,
@@ -149,7 +150,7 @@ impl GameState {
             escape_timer: 60.0,
             enemies: Vec::new(),
             projectiles: Vec::new(),
-            particles: Vec::new(),
+            particles: ParticleSystem::new(),
             scrap_piles: Vec::new(),
             gathering_target: None,
             gathering_timer: 0.0,
@@ -170,7 +171,7 @@ impl GameState {
             pause_menu_selection: 0,
             settings_open: false,
             settings_selection: 0,
-            settings: Settings::load(),
+            settings: settings::load(),
             engine_stress: 0.0,
             nanite_alert: NANITE_ALERT_BASE, // Initial alert level
             life_support_timer: 0.0,
@@ -297,21 +298,25 @@ impl GameState {
         }
     }
 
-    /// Emit a radial burst of particles at a screen position (deterministic angles).
+    /// Emit a radial burst of particles at a screen position.
     pub fn spawn_burst(&mut self, pos: Vec2, color: Color, count: usize, speed: f32, life: f32) {
         if count == 0 {
             return;
         }
-        for i in 0..count {
-            let angle = (i as f32 / count as f32) * std::f32::consts::TAU;
-            let vel = vec2(angle.cos(), angle.sin()) * speed;
-            self.particles.push(Particle::new(pos, vel, life, color));
-        }
-        // Bound the pool so long fights can't grow it without limit.
-        if self.particles.len() > 512 {
-            let overflow = self.particles.len() - 512;
-            self.particles.drain(0..overflow);
-        }
+        // Fixed size/no shrink mirrors the previous fixed-radius circle draw (alpha-fade
+        // only); drag ~0.05/sec matches the old per-frame velocity decay of 3.0/sec.
+        let config = BurstConfig {
+            speed: (speed, speed),
+            size: (3.0, 3.0),
+            life: (life, life),
+            colors: vec![color],
+            direction: 0.0,
+            spread: std::f32::consts::TAU,
+            drag: 0.05,
+            gravity: 0.0,
+            shrink: false,
+        };
+        self.particles.spawn_burst(pos, count, &config);
     }
 
     pub fn record_event(&mut self, event: &GameEvent) {

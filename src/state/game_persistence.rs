@@ -3,11 +3,12 @@
 //! Native builds save to JSON files on disk; WASM builds use the toolkit's keyed
 //! browser storage (same pattern as settings), so save/load works on WebGL too.
 
-use crate::enemy::entities::{Enemy, Particle, Projectile, ScrapPile};
+use crate::enemy::entities::{Enemy, Projectile, ScrapPile};
 use crate::state::game_state::GameState;
 use crate::state::persistence::SaveData;
 use crate::state::persistence::{SavedEnemy, SavedParticle, SavedProjectile, SavedScrapPile};
 use macroquad::prelude::*;
+use macroquad_toolkit::fx::{Particle, ParticleSystem};
 use std::io;
 
 #[cfg(target_arch = "wasm32")]
@@ -34,7 +35,7 @@ impl GameState {
                     damage: e.damage,
                     target: e.target_module,
                     attached_to: e.attached_to,
-                    ability_timer: e.ability_timer,
+                    ability_timer: e.ability_elapsed(),
                 })
                 .collect(),
             projectiles: self
@@ -49,14 +50,15 @@ impl GameState {
                 .collect(),
             particles: self
                 .particles
+                .particles()
                 .iter()
                 .map(|p| SavedParticle {
                     pos: (p.position.x, p.position.y),
                     vel: (p.velocity.x, p.velocity.y),
-                    life: p.lifetime,
-                    max_life: p.max_lifetime,
+                    life: p.life,
+                    max_life: p.max_life,
                     color: (p.color.r, p.color.g, p.color.b, p.color.a),
-                    active: p.active,
+                    active: true,
                 })
                 .collect(),
             scrap_piles: self
@@ -112,18 +114,22 @@ impl GameState {
         state.enemies = save_data
             .enemies
             .into_iter()
-            .map(|s| Enemy {
-                id: s.id,
-                enemy_type: s.enemy_type,
-                position: vec2(s.pos.0, s.pos.1),
-                health: s.hp,
-                max_health: s.max_hp,
-                speed: s.speed,
-                damage: s.damage,
-                target_module: s.target,
-                attached_to: s.attached_to,
-                ability_timer: s.ability_timer,
-                attacking: false,
+            .map(|s| {
+                let ability_cooldown =
+                    Enemy::ability_cooldown_from_elapsed(s.enemy_type.clone(), s.ability_timer);
+                Enemy {
+                    id: s.id,
+                    enemy_type: s.enemy_type,
+                    position: vec2(s.pos.0, s.pos.1),
+                    health: s.hp,
+                    max_health: s.max_hp,
+                    speed: s.speed,
+                    damage: s.damage,
+                    target_module: s.target,
+                    attached_to: s.attached_to,
+                    ability_cooldown,
+                    attacking: false,
+                }
             })
             .collect();
         state.projectiles = save_data
@@ -136,18 +142,21 @@ impl GameState {
                 active: s.active,
             })
             .collect();
-        state.particles = save_data
-            .particles
-            .into_iter()
-            .map(|s| Particle {
+        let mut particles = ParticleSystem::new();
+        for s in save_data.particles.into_iter().filter(|s| s.active) {
+            particles.spawn(Particle {
                 position: vec2(s.pos.0, s.pos.1),
                 velocity: vec2(s.vel.0, s.vel.1),
-                lifetime: s.life,
-                max_lifetime: s.max_life,
+                life: s.life,
+                max_life: s.max_life,
+                size: 3.0,
                 color: Color::new(s.color.0, s.color.1, s.color.2, s.color.3),
-                active: s.active,
-            })
-            .collect();
+                drag: 0.05,
+                gravity: 0.0,
+                shrink: false,
+            });
+        }
+        state.particles = particles;
         state.scrap_piles = save_data
             .scrap_piles
             .into_iter()

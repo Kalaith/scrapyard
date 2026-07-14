@@ -1,3 +1,4 @@
+use crate::data::settings;
 use crate::ship::interior::Room;
 use crate::simulation::constants::*;
 use crate::simulation::events::{EventBus, UIEvent};
@@ -186,18 +187,11 @@ impl InputManager {
         // Enter toggles booleans or selects Back
         if input.enter_pressed || input.space_pressed {
             match state.settings_selection {
-                3 => {
-                    state.settings.fullscreen = !state.settings.fullscreen;
-                    // Apply fullscreen immediately
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        macroquad::window::set_fullscreen(state.settings.fullscreen);
-                    }
-                }
+                3 => state.settings.toggle_fullscreen(),
                 4 => state.settings.screen_shake = !state.settings.screen_shake,
                 5 => {
                     // Back - save and close
-                    let _ = state.settings.save();
+                    let _ = settings::save(&state.settings);
                     state.settings_open = false;
                 }
                 _ => {}
@@ -206,7 +200,7 @@ impl InputManager {
 
         // Escape also closes settings
         if is_key_pressed(KeyCode::Escape) {
-            let _ = state.settings.save();
+            let _ = settings::save(&state.settings);
             state.settings_open = false;
         }
     }
