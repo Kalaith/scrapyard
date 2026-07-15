@@ -24,7 +24,7 @@ pub fn process_ui_events(state: &mut GameState, events: &mut EventBus) {
             }
             UIEvent::Pause => {
                 state.paused = true;
-                state.pause_menu_selection = 0;
+                state.pause_menu_cursor.set_index(0);
             }
             UIEvent::Resume => {
                 state.paused = false;

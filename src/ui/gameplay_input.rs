@@ -6,6 +6,7 @@ use crate::state::{GameState, ViewMode};
 use crate::ui::input_manager::{InputManager, InputState};
 use crate::ui::pause_menu::PauseMenuOption;
 use macroquad::prelude::*;
+use macroquad_toolkit::input::{menu_nav_horizontal, menu_nav_vertical};
 
 impl InputManager {
     pub fn handle_gameplay_input(
@@ -29,7 +30,7 @@ impl InputManager {
         }
 
         // Escape opens pause menu
-        if input.escape_pressed {
+        if input.base.escape_pressed {
             events.push_ui(UIEvent::Pause);
             return;
         }
@@ -55,10 +56,9 @@ impl InputManager {
         events: &mut EventBus,
     ) {
         let menu_options = PauseMenuOption::all();
-        let option_count = menu_options.len();
 
         // ESC closes pause menu
-        if input.escape_pressed {
+        if input.base.escape_pressed {
             events.push_ui(UIEvent::Resume);
             return;
         }
@@ -81,19 +81,18 @@ impl InputManager {
         }
 
         // Mouse hover updates selection
-        let (mx, my) = (input.mouse_pos.x, input.mouse_pos.y);
-        for (i, selected) in menu_options.iter().enumerate().take(option_count) {
+        for (i, selected) in menu_options.iter().enumerate() {
             let y = start_y + i as f32 * spacing;
-            if mx >= btn_x && mx <= btn_x + btn_w && my >= y && my <= y + btn_h {
-                state.pause_menu_selection = i;
+            if input.base.hovered_rect(Rect::new(btn_x, y, btn_w, btn_h)) {
+                state.pause_menu_cursor.set_index(i);
 
                 // Mouse click selects
-                if input.left_click {
+                if input.base.left_click {
                     match selected {
                         PauseMenuOption::Resume => events.push_ui(UIEvent::Resume),
                         PauseMenuOption::Settings => {
                             state.settings_open = true;
-                            state.settings_selection = 0;
+                            state.settings_cursor.set_index(0);
                         }
                         PauseMenuOption::SaveGame => events.push_ui(UIEvent::SaveGame(0)),
                         PauseMenuOption::LoadGame => events.push_ui(UIEvent::LoadGame(0)),
@@ -105,28 +104,17 @@ impl InputManager {
             }
         }
 
-        // Arrow up
-        if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
-            state.pause_menu_selection = if state.pause_menu_selection == 0 {
-                option_count - 1
-            } else {
-                state.pause_menu_selection - 1
-            };
-        }
-
-        // Arrow down
-        if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::S) {
-            state.pause_menu_selection = (state.pause_menu_selection + 1) % option_count;
-        }
+        // Arrow keys / WASD move the selection with wrap-around
+        state.pause_menu_cursor.navigate(menu_nav_vertical());
 
         // Enter/Space selects
-        if input.enter_pressed || input.space_pressed {
-            let selected = menu_options[state.pause_menu_selection];
+        if input.base.enter_pressed || input.base.space_pressed {
+            let selected = menu_options[state.pause_menu_cursor.index()];
             match selected {
                 PauseMenuOption::Resume => events.push_ui(UIEvent::Resume),
                 PauseMenuOption::Settings => {
                     state.settings_open = true;
-                    state.settings_selection = 0;
+                    state.settings_cursor.set_index(0);
                 }
                 PauseMenuOption::SaveGame => events.push_ui(UIEvent::SaveGame(0)),
                 PauseMenuOption::LoadGame => events.push_ui(UIEvent::LoadGame(0)),
@@ -142,33 +130,14 @@ impl InputManager {
         state: &mut GameState,
         _events: &mut EventBus,
     ) {
-        const SETTING_COUNT: usize = 6; // 5 settings + Back
-
-        // Up/Down navigation
-        if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
-            state.settings_selection = if state.settings_selection == 0 {
-                SETTING_COUNT - 1
-            } else {
-                state.settings_selection - 1
-            };
-        }
-        if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::S) {
-            state.settings_selection = (state.settings_selection + 1) % SETTING_COUNT;
-        }
+        // Up/Down navigation with wrap-around
+        state.settings_cursor.navigate(menu_nav_vertical());
 
         // Left/Right adjusts value
-        let left = is_key_pressed(KeyCode::Left) || is_key_pressed(KeyCode::A);
-        let right = is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::D);
-        let delta = if right {
-            0.1
-        } else if left {
-            -0.1
-        } else {
-            0.0
-        };
+        let delta = menu_nav_horizontal() as f32 * 0.1;
 
         if delta != 0.0 {
-            match state.settings_selection {
+            match state.settings_cursor.index() {
                 0 => {
                     state.settings.master_volume =
                         (state.settings.master_volume + delta).clamp(0.0, 1.0)
@@ -185,8 +154,8 @@ impl InputManager {
         }
 
         // Enter toggles booleans or selects Back
-        if input.enter_pressed || input.space_pressed {
-            match state.settings_selection {
+        if input.base.enter_pressed || input.base.space_pressed {
+            match state.settings_cursor.index() {
                 3 => state.settings.toggle_fullscreen(),
                 4 => state.settings.screen_shake = !state.settings.screen_shake,
                 5 => {
@@ -242,8 +211,8 @@ impl InputManager {
             }
         }
 
-        if input.left_click {
-            if let Some(slot) = route_slot_at(input.mouse_pos) {
+        if input.base.left_click {
+            if let Some(slot) = route_slot_at(input.base.mouse_pos) {
                 if state.toggle_route_slot(slot, events) {
                     state.advance_tutorial_after_power_route();
                 }

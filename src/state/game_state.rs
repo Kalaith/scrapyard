@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 use macroquad_toolkit::fx::{BurstConfig, ParticleSystem};
+use macroquad_toolkit::input::MenuCursor;
 use macroquad_toolkit::rng;
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +19,7 @@ use crate::simulation::events::GameEvent;
 use crate::simulation::gameplay::ModuleRegistry;
 use crate::state::profile::PlayerProfile;
 use crate::ui::assets::AssetManager;
+use crate::ui::pause_menu::{PauseMenuOption, SETTINGS_OPTION_COUNT};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum GamePhase {
@@ -88,9 +90,9 @@ pub struct GameState {
     pub time_survived: f32,
     pub wave_state: WaveState,
     pub repair_timer: f32,
-    pub pause_menu_selection: usize,
+    pub pause_menu_cursor: MenuCursor,
     pub settings_open: bool,
-    pub settings_selection: usize,
+    pub settings_cursor: MenuCursor,
     pub settings: Settings,
     pub engine_stress: f32,
     pub nanite_alert: f32,
@@ -168,9 +170,9 @@ impl GameState {
             time_survived: 0.0,
             wave_state: WaveState::new(),
             repair_timer: 0.0,
-            pause_menu_selection: 0,
+            pause_menu_cursor: MenuCursor::new(PauseMenuOption::all().len()),
             settings_open: false,
-            settings_selection: 0,
+            settings_cursor: MenuCursor::new(SETTINGS_OPTION_COUNT),
             settings: settings::load(),
             engine_stress: 0.0,
             nanite_alert: NANITE_ALERT_BASE, // Initial alert level
@@ -237,7 +239,7 @@ impl GameState {
         self.charge_surges_fired = 0;
         self.hull_breach_stage = 0;
         self.startup_grace = STARTUP_GRACE_SECONDS;
-        self.pause_menu_selection = 0;
+        self.pause_menu_cursor.set_index(0);
         self.recent_events.clear();
         self.recent_events
             .push("New salvage run started".to_string());

@@ -19,27 +19,3 @@ pub fn draw_panel(rect: Rect, title: &str, accent: Color) {
         );
     }
 }
-
-pub fn draw_stat_card(rect: Rect, label: &str, value: &str, detail: &str, color: Color) {
-    draw_rectangle(rect.x, rect.y, rect.w, rect.h, theme::panel_bg_light());
-    draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 1.0, theme::panel_border());
-    draw_ui_text(label, rect.x + 10.0, rect.y + 18.0, 16.0, color);
-    draw_ui_text(value, rect.x + 10.0, rect.y + 42.0, 24.0, color);
-
-    if !detail.is_empty() {
-        draw_ui_text(
-            detail,
-            rect.x + 10.0,
-            rect.y + rect.h - 6.0,
-            14.0,
-            theme::text_muted(),
-        );
-    }
-}
-
-pub fn draw_progress_bar(rect: Rect, pct: f32, color: Color) {
-    let clamped = pct.clamp(0.0, 1.0);
-    draw_rectangle(rect.x, rect.y, rect.w, rect.h, color_u8!(18, 22, 26, 255));
-    draw_rectangle(rect.x, rect.y, rect.w * clamped, rect.h, color);
-    draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 1.0, theme::panel_border());
-}

@@ -44,7 +44,7 @@ impl Renderer {
                     if state.settings_open {
                         self.draw_settings_panel(state);
                     } else {
-                        self.draw_pause_menu(state, state.pause_menu_selection);
+                        self.draw_pause_menu(state, state.pause_menu_cursor.index());
                     }
                 }
             }

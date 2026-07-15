@@ -1,18 +1,13 @@
 use crate::simulation::events::EventBus;
 use crate::state::{GamePhase, GameState};
 use macroquad::prelude::*;
+use macroquad_toolkit::input::InputState as BaseInputState;
 
-/// Captures current input state for the frame
+/// Captures current input state for the frame: the toolkit's shared snapshot
+/// (mouse buttons/position, Escape/Enter/Space) plus scrapyard-specific keys.
 #[derive(Debug, Clone)]
-
 pub struct InputState {
-    pub mouse_pos: Vec2,
-    pub mouse_world_pos: Option<(usize, usize)>,
-    pub left_click: bool,
-    pub right_click: bool,
-    pub escape_pressed: bool,
-    pub enter_pressed: bool,
-    pub space_pressed: bool,
+    pub base: BaseInputState,
     pub pause_pressed: bool,
     pub tab_pressed: bool,
     pub interact_pressed: bool,
@@ -21,13 +16,7 @@ pub struct InputState {
 impl InputState {
     pub fn capture() -> Self {
         Self {
-            mouse_pos: mouse_position().into(),
-            mouse_world_pos: None,
-            left_click: is_mouse_button_pressed(MouseButton::Left),
-            right_click: is_mouse_button_pressed(MouseButton::Right),
-            escape_pressed: is_key_pressed(KeyCode::Escape),
-            enter_pressed: is_key_pressed(KeyCode::Enter),
-            space_pressed: is_key_pressed(KeyCode::Space),
+            base: BaseInputState::capture(),
             pause_pressed: is_key_pressed(KeyCode::P),
             tab_pressed: is_key_pressed(KeyCode::Tab),
             interact_pressed: is_key_pressed(KeyCode::E),

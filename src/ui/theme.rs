@@ -11,10 +11,6 @@ pub fn panel_bg() -> Color {
     color_u8!(4, 7, 10, 218)
 }
 
-pub fn panel_bg_light() -> Color {
-    color_u8!(11, 16, 20, 226)
-}
-
 pub fn panel_border() -> Color {
     color_u8!(72, 82, 92, 185)
 }

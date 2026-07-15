@@ -3,7 +3,13 @@
 use crate::state::GameState;
 use crate::ui::renderer::Renderer;
 use macroquad::prelude::*;
-use macroquad_toolkit::ui::{draw_ui_text, measure_ui_text};
+use macroquad_toolkit::ui::{
+    draw_plaque, draw_ui_text, measure_ui_text, PlaquePalette, PlaqueState, PlaqueStyle,
+    SurfaceStyle,
+};
+
+/// Number of rows in the settings panel: 5 settings + Back.
+pub const SETTINGS_OPTION_COUNT: usize = 6;
 
 /// Pause menu state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,19 +92,22 @@ impl Renderer {
         let start_y = box_y + 70.0;
         let spacing = 50.0;
 
+        let (style, palette) = pause_button_style();
         for (i, option) in options.iter().enumerate() {
             let y = start_y + i as f32 * spacing;
             let is_selected = i == selected;
 
-            let bg_color = if is_selected {
-                color_u8!(70, 70, 100, 255)
-            } else {
-                color_u8!(50, 50, 60, 255)
-            };
-            let border_color = if is_selected { YELLOW } else { GRAY };
-
-            draw_rectangle(btn_x, y, btn_w, btn_h, bg_color);
-            draw_rectangle_lines(btn_x, y, btn_w, btn_h, 2.0, border_color);
+            draw_plaque(
+                Rect::new(btn_x, y, btn_w, btn_h),
+                &style,
+                &palette,
+                PlaqueState {
+                    enabled: true,
+                    hovered: false,
+                    pressed: false,
+                    selected: is_selected,
+                },
+            );
 
             let label = option.label();
             let text_w = measure_ui_text(label, None, 20, 1.0).width;
@@ -155,7 +164,7 @@ impl Renderer {
         );
 
         let settings = &state.settings;
-        let selected = state.settings_selection;
+        let selected = state.settings_cursor.index();
         let row_height = 50.0;
         let start_y = box_y + 80.0;
         let label_x = box_x + 30.0;
@@ -256,4 +265,29 @@ impl Renderer {
             GRAY,
         );
     }
+}
+
+/// Toolkit plaque style matching the pause menu's flat button look: plain
+/// face, 2px border, yellow border + lighter face while keyboard-selected.
+fn pause_button_style() -> (PlaqueStyle, PlaquePalette) {
+    let style = PlaqueStyle {
+        shadow: None,
+        frame: SurfaceStyle::new(Color::new(0.0, 0.0, 0.0, 0.0)),
+        inset: 0.0,
+        face_border_width: 2.0,
+        top_highlight: None,
+        corner_marks: None,
+        selected_border: Some(YELLOW),
+        press_nudge: 0.0,
+        ..PlaqueStyle::default()
+    };
+    let palette = PlaquePalette {
+        normal: color_u8!(50, 50, 60, 255),
+        hovered: color_u8!(70, 70, 100, 255),
+        pressed: color_u8!(70, 70, 100, 255),
+        disabled: color_u8!(50, 50, 60, 255),
+        border: GRAY,
+        text: WHITE,
+    };
+    (style, palette)
 }

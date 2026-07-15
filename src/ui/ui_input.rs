@@ -3,6 +3,7 @@ use crate::state::GameState;
 use crate::ui::input_manager::{InputManager, InputState};
 use crate::ui::renderer::Renderer;
 use macroquad::prelude::*;
+use macroquad_toolkit::input::rect_contains;
 
 impl InputManager {
     pub fn handle_menu_input(
@@ -16,41 +17,41 @@ impl InputManager {
             return;
         }
 
-        if input.enter_pressed || input.space_pressed {
+        if input.base.enter_pressed || input.base.space_pressed {
             events.push_ui(UIEvent::StartGame);
             return;
         }
 
-        if input.left_click {
+        if input.base.left_click {
             // Use Renderer's button bounds for consistency
             let renderer = Renderer::new();
 
             // Check New Game button click
-            if contains_mouse(renderer.get_new_game_button_bounds(), input.mouse_pos) {
+            if contains_mouse(renderer.get_new_game_button_bounds(), input.base.mouse_pos) {
                 events.push_ui(UIEvent::StartGame);
                 return;
             }
 
-            if contains_mouse(renderer.get_settings_button_bounds(), input.mouse_pos) {
+            if contains_mouse(renderer.get_settings_button_bounds(), input.base.mouse_pos) {
                 state.settings_open = true;
-                state.settings_selection = 0;
+                state.settings_cursor.set_index(0);
                 return;
             }
 
-            if contains_mouse(renderer.get_exit_button_bounds(), input.mouse_pos) {
+            if contains_mouse(renderer.get_exit_button_bounds(), input.base.mouse_pos) {
                 events.push_ui(UIEvent::ExitGame);
             }
         }
     }
 
     pub fn handle_game_over_input(&self, input: &InputState, events: &mut EventBus) {
-        if input.enter_pressed || input.space_pressed {
+        if input.base.enter_pressed || input.base.space_pressed {
             events.push_ui(UIEvent::ReturnToMenu);
         }
     }
 
     pub fn handle_victory_input(&self, input: &InputState, events: &mut EventBus) {
-        if input.enter_pressed || input.space_pressed {
+        if input.base.enter_pressed || input.base.space_pressed {
             events.push_ui(UIEvent::PurchaseUpgrade("dummy".to_string()));
         }
     }
@@ -61,12 +62,12 @@ impl InputManager {
         state: &GameState,
         events: &mut EventBus,
     ) {
-        if input.enter_pressed {
+        if input.base.enter_pressed {
             events.push_ui(UIEvent::NextRound);
             return;
         }
 
-        if input.escape_pressed {
+        if input.base.escape_pressed {
             events.push_ui(UIEvent::ReturnToMenu);
             return;
         }
@@ -96,5 +97,5 @@ impl InputManager {
 
 fn contains_mouse(bounds: (f32, f32, f32, f32), mouse_pos: Vec2) -> bool {
     let (x, y, w, h) = bounds;
-    mouse_pos.x >= x && mouse_pos.x <= x + w && mouse_pos.y >= y && mouse_pos.y <= y + h
+    rect_contains(x, y, w, h, mouse_pos.x, mouse_pos.y)
 }
