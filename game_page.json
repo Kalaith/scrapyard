@@ -1,0 +1,28 @@
+{
+  "title": "Scrapyard Planet",
+  "status": { "text": "Playable", "class": "playable" },
+  "controls_hint": "Click the game canvas to start, then use keyboard controls",
+  "canvas_rendering": "pixelated",
+  "about": [
+    "<strong>Scrapyard Planet</strong> is a tower defense game where players act as scrapyard operators repairing crashed spaceships on a hostile planet. Rogue nanomachines attack anything generating power, forcing players to balance ship repairs with defense.",
+    "Destroyed nanomachines provide materials for further repairs, creating a tense risk-reward cycle. The goal is to restore the ship's power core, activate the engines, and escape before being overrun."
+  ],
+  "controls": [
+    { "key": "WASD", "desc": "Move character (Interior View)" },
+    { "key": "Tab", "desc": "Toggle Interior/Exterior views" },
+    { "key": "E", "desc": "Interact / Repair modules" },
+    { "key": "Hold E", "desc": "Gather scrap from piles" },
+    { "key": "P", "desc": "Pause Game" },
+    { "key": "Esc", "desc": "Return to Menu" }
+  ],
+  "details": [
+    { "label": "Genre", "value": "Tower Defense" },
+    { "label": "Engine", "value": "Macroquad" },
+    { "label": "Platform", "value": "Browser, Windows" }
+  ],
+  "download": {
+    "href": "scrapyard_windows.zip",
+    "label": "Windows Build"
+  },
+  "repository": "https://github.com/Kalaith/scrapyard"
+}
