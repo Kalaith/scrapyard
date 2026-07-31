@@ -29,10 +29,6 @@ Restore the ship's power core, activate the engines, survive the final pressure,
 ## Current Scope
 
 Playable repair-and-defense loop with ship modules, scrap gathering, escalating waves, auto-firing weapons, and escape pressure.
-# Practical Future Improvements
 
-- Add unit tests for payout breakdown math covering base, repaired, powered, hull, scrap, combat, risk, penalties, and total.
-- Add integration tests for PowerRouted events, life-support timer updates, threat signature changes, and rapid system toggles.
-- Separate ship interior simulation from HUD/world rendering so repair and routing behavior can be tested without draw calls.
-- Create scenario fixtures for low-hull escape, high-risk salvage, and combat-heavy runs.
+Balance values, ship layouts, enemies, upgrades and per-run contract modifiers are all data — see `assets/*.json` and `assets/ships/`. Open work is tracked in `TODO.md`.
 
