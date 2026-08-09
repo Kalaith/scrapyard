@@ -45,14 +45,15 @@ async fn main() {
 
     // Screenshot harness: when SCRAPYARD_CAPTURE_PATH is set, seed a scene,
     // simulate deterministic frames, write a PNG, and exit.
-    let capture_config = capture::CaptureConfig::from_env("SCRAPYARD");
-    if let Some(config) = &capture_config {
-        game_state.begin_capture_scene(&config.scene);
-    }
+    let capture_configs = capture::CaptureConfig::all_from_env("SCRAPYARD");
+    let next_capture_scene = std::cell::RefCell::new(None::<String>);
 
     // Whole per-frame body (input, update, events, draw), shared by the
     // capture harness and the interactive loop below.
     let mut frame = |dt: f32| {
+        if let Some(scene) = next_capture_scene.borrow_mut().take() {
+            game_state.begin_capture_scene(&scene);
+        }
         // 1. Gather input and push UI events
         input_manager.update(&mut game_state, &mut event_bus);
 
@@ -129,8 +130,11 @@ async fn main() {
         debug_overlay.draw(&[]);
     };
 
-    if let Some(config) = capture_config {
-        capture::run_capture(&config, frame).await;
+    if let Some(configs) = capture_configs {
+        for config in configs {
+            next_capture_scene.replace(Some(config.scene.clone()));
+            capture::run_capture_once(&config, &mut frame).await;
+        }
         return;
     }
 
