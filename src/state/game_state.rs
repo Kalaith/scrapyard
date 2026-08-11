@@ -157,14 +157,16 @@ impl GameState {
             gathering_target: None,
             gathering_timer: 0.0,
             upgrades: GameUpgrades::new(),
-            upgrade_templates: serde_json::from_str(include_str!("../../assets/upgrades.json"))
-                .unwrap_or_else(|e| {
-                    eprintln!(
-                        "Warning: Failed to load upgrades.json: {}. Using empty list.",
-                        e
-                    );
-                    Vec::new()
-                }),
+            upgrade_templates: serde_json::from_str(macroquad_toolkit::include_json_str!(
+                "../../assets/upgrades.json"
+            ))
+            .unwrap_or_else(|e| {
+                eprintln!(
+                    "Warning: Failed to load upgrades.json: {}. Using empty list.",
+                    e
+                );
+                Vec::new()
+            }),
             profile: PlayerProfile::load(),
             frame_count: 0,
             time_survived: 0.0,

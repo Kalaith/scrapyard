@@ -68,7 +68,7 @@ impl ModuleRegistry {
         let mut stats = HashMap::new();
 
         // Load modules config from embedded JSON
-        let json_content = include_str!("../../assets/modules.json");
+        let json_content = macroquad_toolkit::include_json_str!("../../assets/modules.json");
         let config: ModulesJson = serde_json::from_str(json_content).unwrap_or_else(|e| {
             eprintln!(
                 "Warning: Failed to parse modules.json: {}. Using hardcoded defaults.",
