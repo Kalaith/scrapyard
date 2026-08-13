@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "assets": [
+    "assets/sounds/click.wav",
+    "assets/sounds/damage.wav",
+    "assets/sounds/enemy_killed.wav",
+    "assets/sounds/engine.wav",
+    "assets/sounds/explosion.wav",
+    "assets/sounds/gameover.wav",
+    "assets/sounds/laser.wav",
+    "assets/sounds/pickup.wav",
+    "assets/sounds/repair.wav",
+    "assets/sounds/victory.wav"
+  ]
+}
